@@ -34,7 +34,12 @@ void SharedBuffer::unmap()
     {
         release();
 
-        shmdt( (const void *)_pshm ); /* Detach the segment... */
+        int retval = shmdt( (const void *)_pshm ); /* Detach the segment... */
+
+        if (retval >= 0)
+        {
+            _pshm = NULL;
+        }
     }
 }
 

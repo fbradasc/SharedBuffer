@@ -42,7 +42,7 @@ SharedBuffer shb;
 
 #define my_sigaction(a,b,c)   syscall(__NR_sigaction,a,b,c)
 #else
-#define my_sigaction        sigaction
+#define my_sigaction          sigaction
 #endif
 
 #if defined(DEBUG_MAIN)
@@ -50,7 +50,6 @@ SharedBuffer shb;
 #else
 #define TRACE(format, ...)
 #endif
-
 
 void my_handler(int sig)
 {
@@ -177,11 +176,15 @@ void * dispatcher(void * m)
     }
 }
 
+void show_help(int argc, char* argv[])
+{
+    printf("Usage:\n\n%s <-s|-c>\n\n", argv[0]);
+}
+
 int main(int argc, char* argv[])
 {
     puts("Welcome to CrapChat! Type ‘\\quit’ to exit.\n");
 
-#if 1
     struct sigaction sigIntHandler;
 
     sigIntHandler.sa_handler = my_handler;
@@ -194,16 +197,7 @@ int main(int argc, char* argv[])
     my_sigaction(SIGABRT, &sigIntHandler, NULL);
     my_sigaction(SIGSEGV, &sigIntHandler, NULL);
     my_sigaction(SIGFPE , &sigIntHandler, NULL);
-#else
-    signal(SIGINT , &my_handler);
-    signal(SIGTERM, &my_handler);
-    signal(SIGQUIT, &my_handler);
-    signal(SIGABRT, &my_handler);
-    signal(SIGSEGV, &my_handler);
-    signal(SIGFPE , &my_handler);
-#endif
-    // Get shared memory segment id off the command line.
-    //
+
     if (argc == 2)
     {
         // Produce (allocate) a shared buffer
@@ -225,18 +219,7 @@ int main(int argc, char* argv[])
                 worker();
             }
         }
-#if 0
-        else if (strcmp(argv[1],"-k")==0)
-        {
-            SharedBuffer::destroy(argv[2]);
-        }
-#endif
-    }
-    else
-    {
-        // We’ve a value! That means we’re the consumer
-        //
-        if (ccon.setup(ION_SOCKET_PATH))
+        if ((strcmp(argv[1],"-c")==0) && ccon.setup(ION_SOCKET_PATH))
         {
             ostringstream oss;
 
@@ -253,5 +236,19 @@ int main(int argc, char* argv[])
 #endif
             client(fd);
         }
+#if 0
+        else if (strcmp(argv[1],"-k")==0)
+        {
+            SharedBuffer::destroy(argv[2]);
+        }
+#endif
+        else
+        {
+            show_help(argc, argv);
+        }
+    }
+    else
+    {
+        show_help(argc, argv);
     }
 }

@@ -17,7 +17,7 @@ SYSV_CRAPCHAT_SRCS="src/UServer.cpp src/UClient.cpp src/ion.cpp src/sysv/SharedB
 DEBUG_FLAGS="-DDEBUG_SHB -DDEBUG_USERVER -DDEBUG_UCLIENT -DDEBUG_MAIN"
 # DEBUG_FLAGS=""
 
-g++ -g -m32 ${SYSV_CRAPCHAT_SRCS} ${DEBUG_FLAGS} ${SYSV_H_FLAGS} -o bin/sysv/crapchat_x86_64 -lrt -lpthread
+g++ -g -fpermissive -Wint-to-pointer-cast ${SYSV_CRAPCHAT_SRCS} ${DEBUG_FLAGS} ${SYSV_H_FLAGS} -o bin/sysv/crapchat_x86_64 -lrt -lpthread
 
 ./setCrossEnvironment-armeabi-v7a.sh sh -c \
 "\$CXX \$CXXFLAGS -D_LINUX_IPC_H -D__ANDROID__ ${DEBUG_FLAGS} ${SYSV_H_FLAGS} -pie \$LDFLAGS ${SYSV_CRAPCHAT_SRCS} -o bin/sysv/crapchat_android"
