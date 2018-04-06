@@ -87,7 +87,7 @@ int posix_shm_open(const char *name, int oflag, mode_t mode)
 
     int fd = -1;
 
-    if (ashamed.connected() )
+    if (ashamed.setup(name))
     {
         TRACE("\n");
 

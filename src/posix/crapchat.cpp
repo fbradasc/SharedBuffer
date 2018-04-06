@@ -22,8 +22,6 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-#include "UServer.h"
-#include "UClient.h"
 #include "SharedBuffer.h"
 
 #if defined(ANDROID)
@@ -32,18 +30,7 @@
 #define ION_SOCKET_PATH "/tmp/ion_socket"
 #endif
 
-UServer scon;
-UClient ccon;
-
 SharedBuffer shb;
-
-#if defined(ANDROID)
-#include <sys/syscall.h>
-
-#define my_sigaction(a,b,c)   syscall(__NR_sigaction,a,b,c)
-#else
-#define my_sigaction        sigaction
-#endif
 
 #if defined(DEBUG_MAIN)
 #define TRACE(format, ...)      printf("%s:%d - " format, __FUNCTION__, __LINE__, ## __VA_ARGS__)
@@ -52,16 +39,7 @@ SharedBuffer shb;
 #endif
 
 
-void my_handler(int sig)
-{
-    TRACE("\n");
-
-    shb.unmap();
-
-    exit(-1);
-}
-
-void worker()
+void server()
 {
     for (;;)
     {
@@ -82,148 +60,76 @@ void worker()
     }
 }
 
-void client(int fd)
+void client()
 {
-    if (shb.map(fd))
+    shb.dump();
+
+    while (!shb.grab())
     {
-        shb.dump();
+        printf("Another client is attached, waiting\n");
+        sleep(1);
+    }
 
-        while (!shb.grab())
-        {
-            printf("Another client is attached, waiting\n");
-            sleep(1);
-        }
+    // Put an empty string in the shared memory.
+    //
+    ((char*)shb.data())[0] = '\0';
 
-        // Put an empty string in the shared memory.
+    // Unlock the producer to signal they can talk.
+    //
+    puts("You’re consumer. Signalling to producer...");
+
+    shb.notify();
+
+    for (;;)
+    {
+        // Wait until the consumer is ready.
         //
-        ((char*)shb.data())[0] = '\0';
+        shb.wait();
 
-        // Unlock the producer to signal they can talk.
+        // Get your response.
         //
-        puts("You’re consumer. Signalling to producer...");
+        printf("> ");
 
+        fgets((char*)shb.data(), shb.size(), stdin);
+
+        // Hand over to the consumer.
+        //
         shb.notify();
 
-        for (;;)
+        // Do you want to exit?
+        //
+        if (strcmp((char*)shb.data(), "\\quit\n") == 0)
         {
-            // Wait until the consumer is ready.
-            //
-            shb.wait();
-
-            // Get your response.
-            //
-            printf("> ");
-
-            fgets((char*)shb.data(), shb.size(), stdin);
-
-            // Hand over to the consumer.
-            //
-            shb.notify();
-
-            // Do you want to exit?
-            //
-            if (strcmp((char*)shb.data(), "\\quit\n") == 0)
-            {
-                break;
-            }
+            break;
         }
     }
 }
 
-void * server(void * m)
+void show_help(int argc, char* argv[])
 {
-    TRACE(" - ENTER\n");
-
-    pthread_detach(pthread_self());
-
-    int fd = (int)m;
-
-    while (true)
-    {
-        srand(time(NULL));
-
-        vector<string> vstr = scon.getMessage(':');
-
-        size_t pnum = vstr.size();
-
-        if ((pnum == 1) && (vstr[0] == "G")) // get
-        {
-            TRACE(" - Send: %d\n", fd);
-
-#if defined(ANDROID)
-            scon.send_fd(fd);
-#else
-            scon.send_iv(fd);
-#endif
-        }
-
-        usleep(1000);
-    }
-
-    scon.detach();
-}
-
-void * dispatcher(void * m)
-{
-    pthread_detach(pthread_self());
-
-    pthread_t msg;
-
-    scon.setup(ION_SOCKET_PATH);
-
-    if (pthread_create(&msg, NULL, server, m) == 0)
-    {
-        scon.receive();
-    }
+    printf("Usage:\n\n%s <-s|-c> <buffer_name>\n\n", argv[0]);
 }
 
 int main(int argc, char* argv[])
 {
     puts("Welcome to CrapChat! Type ‘\\quit’ to exit.\n");
 
-#if 1
-    struct sigaction sigIntHandler;
-
-    sigIntHandler.sa_handler = my_handler;
-    sigemptyset(&sigIntHandler.sa_mask);
-    sigIntHandler.sa_flags = 0;
-
-    my_sigaction(SIGINT , &sigIntHandler, NULL);
-    my_sigaction(SIGTERM, &sigIntHandler, NULL);
-    my_sigaction(SIGQUIT, &sigIntHandler, NULL);
-    my_sigaction(SIGABRT, &sigIntHandler, NULL);
-    my_sigaction(SIGSEGV, &sigIntHandler, NULL);
-    my_sigaction(SIGFPE , &sigIntHandler, NULL);
-#else
-    signal(SIGINT , &my_handler);
-    signal(SIGTERM, &my_handler);
-    signal(SIGQUIT, &my_handler);
-    signal(SIGABRT, &my_handler);
-    signal(SIGSEGV, &my_handler);
-    signal(SIGFPE , &my_handler);
-#endif
     // Get shared memory segment id off the command line.
     //
     if (argc == 2)
     {
         // Produce (allocate) a shared buffer
         //
-        if ((strcmp(argv[1],"-s")==0) && shb.map(0,BUFSIZ,true))
+        if ((strcmp(argv[1],"-s")==0) && shb.map(argv[2],BUFSIZ,true))
         {
             // Write out the shared memory segment id so the other who
             // wants to chat with us can know.
             //
-
-            shb.dump();
-
-            pthread_t tdis;
-
-            if (pthread_create(&tdis, NULL, dispatcher, (void *)shb.id()) == 0)
-            {
-                puts("Waiting for the consumer...");
-
-                worker();
-            }
+            server();
+        }
+        if ((strcmp(argv[1],"-c")==0) && shb.map(argv[2]))
+        {
+            client();
         }
 #if 0
         else if (strcmp(argv[1],"-k")==0)
@@ -231,27 +137,13 @@ int main(int argc, char* argv[])
             SharedBuffer::destroy(argv[2]);
         }
 #endif
+        else
+        {
+            show_help(argc, argv);
+        }
     }
     else
     {
-        // We’ve a value! That means we’re the consumer
-        //
-        if (ccon.setup(ION_SOCKET_PATH))
-        {
-            ostringstream oss;
-
-            oss << "G";
-
-            ccon.send_tv(oss.str());
-
-            int fd = -1;
-
-#if defined(ANDROID)
-            fd = ccon.recv_fd();
-#else
-            fd = ccon.recv_iv();
-#endif
-            client(fd);
-        }
+        show_help(argc, argv);
     }
 }

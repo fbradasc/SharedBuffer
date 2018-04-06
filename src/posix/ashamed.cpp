@@ -1,7 +1,7 @@
 #include <sstream>
 #include <iostream>
 #include <map>
-#include "TCPServer.h"
+#include "UServer.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -14,21 +14,30 @@
 
 # include <linux/ashmem.h>
 
-#define TRACE()  cout << __FILE__ << ":" << __FUNCTION__ << "," << __LINE__
+#if defined(DEBUG_ASHAMED)
+#define TRACE(format, ...)      printf("%s:%d - " format, __FUNCTION__, __LINE__, ## __VA_ARGS__)
+#else
+#define TRACE(format, ...)
+#endif
 
 #define ASHMEM_DEVICE   "/dev/ashmem"
 
-TCPServer tcp;
+#if defined(ANDROID)
+#define SOCKET_PATH "/data/local/tmp/ion_socket"
+#else
+#define SOCKET_PATH "/tmp/ion_socket"
+#endif
+
+
+UServer scon;
 
 typedef std::map<string, int> shared_buffers_t;
 
 shared_buffers_t shared_buffers;
 
-int ion_fd = -1;
-
 int ashamed_open_(const string& name, int oflag, mode_t mode)
 {
-TRACE() << " - ENTER: " << name << "," << oflag << "," << mode << endl;
+    TRACE("ENTER: %s, %x, %x\n", name.c_str(), oflag, mode);
 
     bool created = false;
 
@@ -61,7 +70,8 @@ TRACE() << " - ENTER: " << name << "," << oflag << "," << mode << endl;
                 // The check for the existence of the object, and its creation if it does not exist, are performed atomically.
                 //
 
-TRACE() << " - EXIT: O_EXCL" << endl;
+                TRACE("EXIT: O_EXCL\n");
+
                 return -O_EXCL;
             }
         }
@@ -75,7 +85,8 @@ TRACE() << " - EXIT: O_EXCL" << endl;
 
     if (fd < 0)
     {
-TRACE() << " - EXIT: " << fd << endl;
+        TRACE("EXIT: %d\n", fd);
+
         return fd;
     }
 
@@ -90,7 +101,8 @@ TRACE() << " - EXIT: " << fd << endl;
                 close(fd);
             }
 
-TRACE() << " - EXIT: O_TRUNC" << endl;
+            TRACE("EXIT: O_TRUNC\n");
+
             return -O_TRUNC;
         }
     }
@@ -126,13 +138,15 @@ TRACE() << " - EXIT: O_TRUNC" << endl;
         shared_buffers[name] = fd;
     }
 
-TRACE() << " - EXIT: " << fd << endl;
+    TRACE("EXIT: %d\n", fd);
+
     return fd;
 }
 
 int ashamed_unlink_(const string& name)
 {
-TRACE() << " - ENTER: " << name << endl;
+    TRACE("ENTER: %s\n", name.c_str());
+
     try
     {
         int fd = shared_buffers.at(name);
@@ -141,7 +155,8 @@ TRACE() << " - ENTER: " << name << endl;
         {
             shared_buffers.erase(name);
 
-TRACE() << " - EXIT: 0" << endl;
+            TRACE("EXIT: 0\n");
+
             return 0;
         }
     }
@@ -149,39 +164,44 @@ TRACE() << " - EXIT: 0" << endl;
     {
     }
 
-TRACE() << " - EXIT: -1" << endl;
+    TRACE("EXIT: -1\n");
+
     return -1;
 }
 
 int ashamed_truncate_(int fd, size_t size)
 {
-TRACE() << " - ENTER: " << fd << "," << size << endl;
+    TRACE("ENTER: %d, %d\n", fd, size);
+
     if (fd < 0)
     {
-TRACE() << " - EXIT: " << fd << endl;
+        TRACE("EXIT: %d\n", fd);
+
         return fd;
     }
 
     int ret = ioctl(fd, ASHMEM_SET_SIZE, size);
 
-TRACE() << " - EXIT: " << ret << endl;
+    TRACE("EXIT: %d\n", ret);
+
     return ret;
 }
 
 void * loop(void * m)
 {
-TRACE() << " - ENTER" << endl;
+    TRACE("ENTER\n");
+
     pthread_detach(pthread_self());
 
     while (true)
     {
         srand(time(NULL));
 
-        vector<string> vstr = tcp.getMessage(':');
+        vector<string> vstr = scon.getMessage(':');
 
         size_t pnum = vstr.size();
 
-for (int i=0; i<pnum; i++) { TRACE() << " - vstr[" << i << "]: " << vstr[i] << endl; }
+        for (int i=0; i<pnum; i++) { TRACE("vstr[%d]: %s\n", i, vstr[i].c_str()); }
 
         int fd = -1;
 
@@ -189,32 +209,35 @@ for (int i=0; i<pnum; i++) { TRACE() << " - vstr[" << i << "]: " << vstr[i] << e
         {
             fd = ashamed_open_(vstr[1], atoi(vstr[2].c_str()), atoi(vstr[3].c_str()));
 
-TRACE() << " - Send: " << fd << endl;
-            tcp.send_fd(fd);
+            TRACE("Send: %d\n", fd);
+
+            scon.send_fd(fd);
         }
         else
         if ((pnum == 2) && (vstr[0] == "U")) // unlink
         {
             fd = ashamed_unlink_(vstr[1]);
 
-TRACE() << " - Send: " << fd << endl;
-            tcp.send_rv(fd);
+            TRACE("Send: %d\n", fd);
+
+            scon.send_rv(fd);
         }
         else
         if ((pnum == 2) && (vstr[0] == "T")) // unlink
         {
-            fd = tcp.recv_fd();
+            fd = scon.recv_fd();
 
             fd = ashamed_truncate_(fd, atoi(vstr[1].c_str()));
 
-TRACE() << " - Send: " << fd << endl;
-            tcp.send_rv(fd);
+            TRACE("Send: %d\n", fd);
+
+            scon.send_rv(fd);
         }
 
         usleep(1000);
     }
 
-    tcp.detach();
+    scon.detach();
 }
 
 static void daemonize()
@@ -302,22 +325,13 @@ int main()
 {
     // daemonize();
 
-    ion_fd = oepn("/dev/ion", O_RDONLY);
+    pthread_t msg;
 
-    if (ion_fd > 0)
+    scon.setup(SOCKET_PATH);
+
+    if (pthread_create(&msg, NULL, loop, (void *)0) == 0)
     {
-        pthread_t msg;
-
-        tcp.setup(11999);
-
-        if (pthread_create(&msg, NULL, loop, (void *)0) == 0)
-        {
-            tcp.receive();
-        }
-    }
-    else
-    {
-        // Error
+        scon.receive();
     }
 
     // syslog(LOG_NOTICE, "ashamed daemon terminated.");
