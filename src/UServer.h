@@ -37,7 +37,10 @@ public:
     void receive();
     vector<string> getMessage(const char& separator);
     void send_iv(int val);
+
     bool send_fd(int fd);
+    int  recv_fd();
+
     void detach();
     void clean();
 

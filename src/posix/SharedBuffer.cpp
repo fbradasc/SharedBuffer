@@ -1,4 +1,4 @@
-#include "MMSharedBuffer.h"
+#include "SharedBuffer.h"
 
 #include <iostream>
 #include <sstream>
@@ -90,7 +90,7 @@ bool SharedBuffer::notify()
 
 void SharedBuffer::dump()
 {
-    printf("Shared buffer name      : %d\n", name     () );
+    printf("Shared buffer name      : %s\n", name     () );
     printf("Shared buffer size      : %d\n", size     () );
     printf("Shared buffer grabbed   : %s\n", grabbed  () ? "true" : "false");
     printf("Shared buffer owner     : %s\n", owner    () ? "true" : "false");
@@ -148,6 +148,7 @@ bool SharedBuffer::grab_(bool grab)
     return _grabbed;
 }
 
+#if 0
 bool SharedBuffer::map_(const char* name, size_t size, bool exclusive)
 {
     TRACE("ENTER(name=%s, size=%d%s)\n", name, size, (exclusive) ? " exclusive" : "");
@@ -291,6 +292,131 @@ bool SharedBuffer::map_(const char* name, size_t size, bool exclusive)
 
     return true;
 }
+#endif
+
+bool SharedBuffer::map_(const char* name, size_t size, bool exclusive)
+{
+    TRACE("ENTER(name=%s, size=%d%s)\n", name, size, (exclusive) ? " exclusive" : "");
+
+    if ( (NULL == name) || (0 == name[0]) )
+    {
+        TRACE("EXIT: invalid params\n");
+
+        return false;
+    }
+
+    if ( (NULL != _pshm) && strcmp(name, _name) )
+    {
+        unmap();
+    }
+
+    bool owner = (size > 0);
+
+    SharedBufferPrivate *pshm = attach_(name); /* try to attach the segment... */
+
+    if (owner)
+    {
+        TRACE("Owner\n");
+
+        if (NULL != pshm)
+        {
+            // The shared segment has been succesfully attached,
+            // make sure the size is the same
+            //
+            size = pshm->_size;
+
+            TRACE("size=%d\n", size);
+        }
+        else
+        {
+            // The shared segment has not been succesfully attached,
+            // try to create a new shared segment.
+            //
+            // Add room for control data (semaphores, buffer size, buffer anchor)
+            //
+            pshm = create_(name, size + sizeof(SharedBufferPrivate));
+        }
+    }
+
+    if (NULL == pshm)
+    {
+        TRACE("EXIT: fail\n");
+
+        return false;
+    }
+
+    _pshm = pshm;
+
+    _name = strdup(name);
+
+    if (owner)
+    {
+        TRACE("\n");
+
+        _pshm->_size      = size;
+        _pshm->_exclusive = exclusive;
+    }
+
+    _owner = owner;
+
+    TRACE("EXIT: success\n");
+
+    return true;
+}
+
+SharedBuffer::SharedBufferPrivate *SharedBuffer::attach_(const char *name)
+{
+    void *pshm = NULL;
+
+    TRACE("ENTER: name=%s\n", name);
+
+    if ( (NULL == name) || (0 == name[0]) )
+    {
+        TRACE("EXIT: invalid params\n");
+
+        return NULL;
+    }
+
+    // TODO: pshm = shmat(id, NULL, 0); /* try to attach the segment... */
+
+    TRACE("pshm=%p\n", pshm);
+
+    if (MAP_FAILED == pshm)
+    {
+        TRACE("EXIT: MAP_FAILED\n");
+
+        return NULL;
+    }
+
+    return (SharedBufferPrivate *)pshm;
+}
+
+SharedBuffer::SharedBufferPrivate *SharedBuffer::create_(const char *name, size_t size)
+{
+    void *pshm = NULL;
+
+    TRACE("ENTER: name=%s\n", name);
+
+    if ( (NULL == name) || (0 == name[0]) )
+    {
+        TRACE("EXIT: invalid params\n");
+
+        return NULL;
+    }
+
+    // TODO: pshm = /* try to create the segment... */
+
+    TRACE("pshm=%p\n", pshm);
+
+    if (MAP_FAILED == pshm)
+    {
+        TRACE("EXIT: MAP_FAILED\n");
+
+        return NULL;
+    }
+
+    return (SharedBufferPrivate *)pshm;
+}
 
 bool SharedBuffer::destroy(const char *name)
 {
@@ -305,7 +431,7 @@ bool SharedBuffer::destroy(const char *name)
 
     int retval = posix_shm_unlink(name);
 
-    TRACE("EXIT: %d\n" retval);
+    TRACE("EXIT: %d\n", retval);
 
     return (retval == 0);
 }

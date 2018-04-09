@@ -88,6 +88,10 @@ private:
 
     bool map_(const char* name, size_t size=0, bool exclusive=false);
 
+    SharedBufferPrivate *attach_(const char *name);
+
+    SharedBufferPrivate *create_(const char *name, size_t size);
+
     bool grab_(bool grab);
 };
 

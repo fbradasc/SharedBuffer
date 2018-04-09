@@ -36,7 +36,7 @@ void* UServer::task_(void *arg)
         //send(sockfd,msg,n,0);
         _message = string(msg);
 
-        TRACE(" - received: %s\n", _message.c_str());
+        TRACE("received: %s\n", _message.c_str());
     }
 
     return( 0);
@@ -97,7 +97,7 @@ vector<string> UServer::getMessage(const char& separator)
             // If we have some characters accumulated
             if (!next.empty() )
             {
-                TRACE(" - got: %s\n", next.c_str());
+                TRACE("got: %s\n", next.c_str());
                 // Add them to the result vector
                 result.push_back(next);
                 next.clear();
@@ -112,7 +112,7 @@ vector<string> UServer::getMessage(const char& separator)
 
     if (!next.empty() )
     {
-        TRACE(" - got: %s\n", next.c_str());
+        TRACE("got: %s\n", next.c_str());
         result.push_back(next);
     }
 
@@ -123,7 +123,7 @@ vector<string> UServer::getMessage(const char& separator)
 
 bool UServer::send_fd(int fd)
 {
-    TRACE(" - INIT\n");
+    TRACE("INIT\n");
 
     ssize_t         retval                        = -1;
     unsigned char   payload                       = '*';
@@ -151,22 +151,155 @@ bool UServer::send_fd(int fd)
 
     do
     {
-        TRACE(" - Sending msg_controllen: %d", msg.msg_controllen);
+        TRACE("Sending msg_controllen: %d\n", msg.msg_controllen);
 
         retval = sendmsg(_sock, &msg, MSG_NOSIGNAL);
 
-        TRACE(" - %d - %s\n", retval, strerror(errno));
+        TRACE("%d - %s\n", retval, strerror(errno));
     }
     while ( (retval < 0) && (errno == EINTR) );
 
-    TRACE(" - EXIT: %d\n", retval);
+    TRACE("EXIT: %d\n", retval);
 
     return(retval);
 }
 
+int UServer::recv_fd()
+{
+    TRACE("INIT\n");
+
+    ssize_t       retval;
+    struct msghdr msg          = { 0 };
+    struct iovec  iv           = { 0 };
+    unsigned char payload[256] = { 0 };
+    int           fd           = -1;
+
+    // Enough buffer for a pile of fd's.
+    // We throw an exception if this buffer
+    // is too small.
+    unsigned char cmsgbuf[2 * sizeof(cmsghdr) + 0x100] = { 0 };
+
+    do
+    {
+        iv.iov_base        = &payload;
+        iv.iov_len         = sizeof(payload);
+
+        msg.msg_iov        = &iv;
+        msg.msg_iovlen     = 1;
+        msg.msg_control    = cmsgbuf;
+
+        msg.msg_controllen = sizeof(cmsgbuf);
+
+        retval = recvmsg(_sock, &msg, MSG_NOSIGNAL);
+
+        TRACE("Receiving: %d - %s\n", retval, strerror(errno));
+    }
+    while ((retval < 0) && (errno == EINTR));
+
+    if ( (retval < 0) && (errno == EPIPE) )
+    {
+        // Treat this as an end of stream
+        //
+
+        TRACE("EXIT: End of stream\n");
+
+        return(0);
+    }
+
+    if (retval < 0)
+    {
+        // I/O Exception
+        //
+
+        TRACE("EXIT: %s\n", strerror(errno));
+
+        return(-1);
+    }
+
+    if ( (msg.msg_flags & (MSG_CTRUNC | MSG_OOB | MSG_ERRQUEUE) ) != 0 )
+    {
+        // To us, any of the above flags are a fatal error
+        //
+
+        TRACE("EXIT: Fatal error: %s\n", strerror(errno));
+
+        return(-1);
+    }
+
+    if (msg.msg_controllen <= 0)
+    {
+        // Empty response
+        //
+
+        TRACE("EXIT: Empty response: %d\n", msg.msg_controllen);
+
+        return(-1);
+    }
+
+    struct cmsghdr *pcmsgh = CMSG_FIRSTHDR(&msg);
+
+    TRACE("Parsing: %p\n", pcmsgh);
+
+    for (; pcmsgh != NULL; pcmsgh = CMSG_NXTHDR(&msg, pcmsgh) )
+    {
+        TRACE("Parsing: %p\n", pcmsgh);
+
+        if (pcmsgh->cmsg_level != SOL_SOCKET)
+        {
+            TRACE("Skipping NOT SOL_SOCKETS\n");
+
+            continue;
+        }
+
+        if (pcmsgh->cmsg_type != SCM_RIGHTS)
+        {
+            TRACE("Skipping NOT SCM_RIGHTS\n");
+
+            continue;
+        }
+
+        const unsigned payload_len = pcmsgh->cmsg_len - CMSG_LEN(0);
+
+        if ((payload_len % sizeof(fd)) != 0)
+        {
+            TRACE("Skipping\n");
+
+            continue;
+        }
+
+        int *pDescriptors = (int *)CMSG_DATA(pcmsgh);
+
+        int count = ( (pcmsgh->cmsg_len - CMSG_LEN(0) ) / sizeof(int) );
+
+        TRACE("count=%d\n", count);
+
+        if (count < 0)
+        {
+            // invalid cmsg length
+            //
+            TRACE("EXIT: invalid cmsg length\n");
+
+            return -1;
+        }
+
+        for (int i = 0; i < count; i++)
+        {
+            TRACE("pDescriptors[%d]=%d\n", i, pDescriptors[i]);
+
+            if (i==0)
+            {
+                fd = pDescriptors[i];
+            }
+        }
+    }
+    TRACE("EXIT: %d\n", fd);
+
+    return(fd);
+}
+
 void UServer::send_iv(int val)
 {
-    TRACE(" - ENTER: %d\n", val);
+    TRACE("ENTER: %d\n", val);
 
     send(_sock, &val, sizeof(val), 0);
 }

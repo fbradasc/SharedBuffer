@@ -96,6 +96,8 @@ private:
 
     SharedBufferPrivate *attach_(int id);
 
+    SharedBufferPrivate *create_(int & id, size_t size);
+
     bool grab_(bool grab);
 
 #if defined(__ANDROID__)

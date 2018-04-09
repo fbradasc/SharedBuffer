@@ -4,7 +4,7 @@
 #include "posix_shm.h"
 #include <linux/ashmem.h>
 
-UClient ashamed("127.0.0.1", 11999);
+UClient ashamed;
 
 #define _SS(a) stringstream(a)
 
@@ -14,6 +14,11 @@ UClient ashamed("127.0.0.1", 11999);
 #define TRACE(format, ...)
 #endif
 
+#if defined(ANDROID)
+#define SOCKET_PATH "/data/local/tmp/ion_socket"
+#else
+#define SOCKET_PATH "/tmp/ion_socket"
+#endif
 
 int posix_shm_truncate(int fd, size_t size)
 {
@@ -87,7 +92,7 @@ int posix_shm_open(const char *name, int oflag, mode_t mode)
 
     int fd = -1;
 
-    if (ashamed.setup(name))
+    if (ashamed.setup(SOCKET_PATH))
     {
         TRACE("\n");
 

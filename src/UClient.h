@@ -41,6 +41,8 @@ public:
 
     bool send_iv(int val);
     int  recv_iv();
+
+    bool send_fd(int fd);
     int  recv_fd();
 
     void exit();

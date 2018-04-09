@@ -205,6 +205,8 @@ void * loop(void * m)
 
         int fd = -1;
 
+        int rv = -1;
+
         if ((pnum == 4) && (vstr[0] == "O")) // open
         {
             fd = ashamed_open_(vstr[1], atoi(vstr[2].c_str()), atoi(vstr[3].c_str()));
@@ -216,22 +218,22 @@ void * loop(void * m)
         else
         if ((pnum == 2) && (vstr[0] == "U")) // unlink
         {
-            fd = ashamed_unlink_(vstr[1]);
+            rv = ashamed_unlink_(vstr[1]);
 
-            TRACE("Send: %d\n", fd);
+            TRACE("Send: %d\n", rv);
 
-            scon.send_rv(fd);
+            scon.send_iv(rv);
         }
         else
-        if ((pnum == 2) && (vstr[0] == "T")) // unlink
+        if ((pnum == 2) && (vstr[0] == "T")) // truncate
         {
             fd = scon.recv_fd();
 
-            fd = ashamed_truncate_(fd, atoi(vstr[1].c_str()));
+            rv = ashamed_truncate_(fd, atoi(vstr[1].c_str()));
 
-            TRACE("Send: %d\n", fd);
+            TRACE("Send: %d\n", rv);
 
-            scon.send_rv(fd);
+            scon.send_iv(rv);
         }
 
         usleep(1000);
@@ -278,7 +280,7 @@ static void daemonize()
     // TODO: Implement a working signal handler
     //
     signal(SIGCHLD, SIG_IGN);
-    signal(SIGHUP, SIG_IGN);
+    signal(SIGHUP , SIG_IGN);
 
     // Fork off for the second time
     //

@@ -61,7 +61,7 @@ bool UClient::setup_(const string & path)
 
 bool UClient::send_tv(const string & data)
 {
-    TRACE(" - ENTER: %s\n", data.c_str());
+    TRACE("ENTER: %s\n", data.c_str());
 
     if (_sock != -1)
     {
@@ -81,7 +81,7 @@ bool UClient::send_tv(const string & data)
 
 bool UClient::send_iv(int val)
 {
-    TRACE(" - ENTER: %d\n", val);
+    TRACE("ENTER: %d\n", val);
 
     if (_sock != -1)
     {
@@ -115,7 +115,7 @@ string UClient::recv_tv(int size)
 
     buffer[size - 1] = '\0';
     reply = buffer;
-    TRACE(" - EXIT: %s\n", reply.c_str());
+    TRACE("EXIT: %s\n", reply.c_str());
     return(reply);
 }
 
@@ -129,7 +129,7 @@ int UClient::recv_iv()
         return(false);
     }
 
-    TRACE(" - EXIT: %d\n", retval);
+    TRACE("EXIT: %d\n", retval);
 
     return(retval);
 }
@@ -142,9 +142,52 @@ void UClient::exit()
     }
 }
 
+bool UClient::send_fd(int fd)
+{
+    TRACE("INIT\n");
+
+    ssize_t         retval                        = -1;
+    unsigned char   payload                       = '*';
+    char            buf[CMSG_SPACE(sizeof(int) )] = { 0 };
+    struct iovec    iv                            = { 0 };
+    struct msghdr   msg                           = { 0 };
+    struct cmsghdr *cmsg                          = NULL;
+
+    iv.iov_base        = &payload;
+    iv.iov_len         = sizeof(payload);
+
+    msg.msg_iov        = &iv;
+    msg.msg_iovlen     = 1;
+    msg.msg_control    = buf;
+    msg.msg_controllen = sizeof(buf);
+
+    cmsg               = CMSG_FIRSTHDR(&msg);
+    cmsg->cmsg_len     = CMSG_LEN(sizeof(fd) );
+    cmsg->cmsg_level   = SOL_SOCKET;
+    cmsg->cmsg_type    = SCM_RIGHTS;
+
+    *( (int *)CMSG_DATA(cmsg) ) = fd;
+
+    msg.msg_controllen = cmsg->cmsg_len;
+
+    do
+    {
+        TRACE("Sending msg_controllen: %d", msg.msg_controllen);
+
+        retval = sendmsg(_sock, &msg, MSG_NOSIGNAL);
+
+        TRACE("%d - %s\n", retval, strerror(errno));
+    }
+    while ( (retval < 0) && (errno == EINTR) );
+
+    TRACE("EXIT: %d\n", retval);
+
+    return(retval);
+}
+
 int UClient::recv_fd()
 {
-    TRACE(" - INIT\n");
+    TRACE("INIT\n");
 
     ssize_t       retval;
     struct msghdr msg          = { 0 };
@@ -170,7 +213,7 @@ int UClient::recv_fd()
 
         retval = recvmsg(_sock, &msg, MSG_NOSIGNAL);
 
-        TRACE(" - Receiving: %d - %s\n", retval, strerror(errno));
+        TRACE("Receiving: %d - %s\n", retval, strerror(errno));
     }
     while ((retval < 0) && (errno == EINTR));
 
@@ -179,7 +222,7 @@ int UClient::recv_fd()
         // Treat this as an end of stream
         //
 
-        TRACE(" - EXIT: End of stream\n");
+        TRACE("EXIT: End of stream\n");
 
         return(0);
     }
@@ -189,7 +232,7 @@ int UClient::recv_fd()
         // I/O Exception
         //
 
-        TRACE(" - EXIT: %s\n", strerror(errno));
+        TRACE("EXIT: %s\n", strerror(errno));
 
         return(-1);
     }
@@ -199,7 +242,7 @@ int UClient::recv_fd()
         // To us, any of the above flags are a fatal error
         //
 
-        TRACE(" - EXIT: Fatal error: %s\n", strerror(errno));
+        TRACE("EXIT: Fatal error: %s\n", strerror(errno));
 
         return(-1);
     }
@@ -209,29 +252,29 @@ int UClient::recv_fd()
         // Empty response
         //
 
-        TRACE(" - EXIT: Empty response: %d\n", msg.msg_controllen);
+        TRACE("EXIT: Empty response: %d\n", msg.msg_controllen);
 
         return(-1);
     }
 
     struct cmsghdr *pcmsgh = CMSG_FIRSTHDR(&msg);
 
-    TRACE(" - Parsing: %p\n", pcmsgh);
+    TRACE("Parsing: %p\n", pcmsgh);
 
     for (; pcmsgh != NULL; pcmsgh = CMSG_NXTHDR(&msg, pcmsgh) )
     {
-        TRACE(" - Parsing: %p\n", pcmsgh);
+        TRACE("Parsing: %p\n", pcmsgh);
 
         if (pcmsgh->cmsg_level != SOL_SOCKET)
         {
-            TRACE(" - Skipping NOT SOL_SOCKETS\n");
+            TRACE("Skipping NOT SOL_SOCKETS\n");
 
             continue;
         }
 
         if (pcmsgh->cmsg_type != SCM_RIGHTS)
         {
-            TRACE(" - Skipping NOT SCM_RIGHTS\n");
+            TRACE("Skipping NOT SCM_RIGHTS\n");
 
             continue;
         }
@@ -240,7 +283,7 @@ int UClient::recv_fd()
 
         if ((payload_len % sizeof(fd)) != 0)
         {
-            TRACE(" - Skipping\n");
+            TRACE("Skipping\n");
 
             continue;
         }
@@ -249,20 +292,20 @@ int UClient::recv_fd()
 
         int count = ( (pcmsgh->cmsg_len - CMSG_LEN(0) ) / sizeof(int) );
 
-        TRACE(" - count=%d\n", count);
+        TRACE("count=%d\n", count);
 
         if (count < 0)
         {
             // invalid cmsg length
             //
-            TRACE(" - EXIT: invalid cmsg length\n");
+            TRACE("EXIT: invalid cmsg length\n");
 
             return -1;
         }
 
         for (int i = 0; i < count; i++)
         {
-            TRACE(" - pDescriptors[%d]=%d\n", i, pDescriptors[i]);
+            TRACE("pDescriptors[%d]=%d\n", i, pDescriptors[i]);
 
             if (i==0)
             {
@@ -270,7 +313,7 @@ int UClient::recv_fd()
             }
         }
     }
-    TRACE(" - EXIT: %d\n", fd);
+    TRACE("EXIT: %d\n", fd);
 
     return(fd);
 }

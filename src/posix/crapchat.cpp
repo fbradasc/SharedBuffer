@@ -41,6 +41,8 @@ SharedBuffer shb;
 
 void server()
 {
+TRACE("\n");
+
     for (;;)
     {
         // Wait the consumer
@@ -62,6 +64,8 @@ void server()
 
 void client()
 {
+TRACE("\n");
+
     shb.dump();
 
     while (!shb.grab())
@@ -114,9 +118,15 @@ int main(int argc, char* argv[])
 {
     puts("Welcome to CrapChat! Type ‘\\quit’ to exit.\n");
 
+    TRACE("argc=%d\n",argc);
+    for (int i=0; i<argc; i++)
+    {
+        TRACE("argv[%d]=%s\n",i,argv[i]);
+    }
+
     // Get shared memory segment id off the command line.
     //
-    if (argc == 2)
+    if (argc == 3)
     {
         // Produce (allocate) a shared buffer
         //

@@ -178,22 +178,11 @@ bool SharedBuffer::map_(int id, size_t size, bool exclusive)
             //
             // Add room for control data (semaphores, buffer size, buffer anchor)
             //
-            id = shmget(IPC_PRIVATE,
-                        size + sizeof(SharedBufferPrivate),
-                        IPC_CREAT | SHM_R | SHM_W);
-
-            pshm = attach_(id); /* try to attach the segment... */
+            pshm = create_(id, size + sizeof(SharedBufferPrivate));
         }
     }
 
     if (NULL == pshm)
-    {
-        TRACE("EXIT: fail\n");
-
-        return false;
-    }
-
-    if (shmctl(id, IPC_RMID, NULL) < 0) /* ...and mark it destroyed. */
     {
         TRACE("EXIT: fail\n");
 
@@ -225,17 +214,49 @@ SharedBuffer::SharedBufferPrivate *SharedBuffer::attach_(int id)
 
     TRACE("id=%d\n", id);
 
-    if (id > 0)
+    if (id <= 0)
     {
-        pshm = shmat(id, NULL, 0); /* try to attach the segment... */
+        TRACE("EXIT: Invalid id: %d\n", id);
 
-        TRACE("pshm=%p\n", pshm);
-
-        if (MAP_FAILED == pshm)
-        {
-            pshm = NULL;
-        }
+        return NULL;
     }
+
+    pshm = shmat(id, NULL, 0); /* try to attach the segment... */
+
+    TRACE("pshm=%p\n", pshm);
+
+    if (MAP_FAILED == pshm)
+    {
+        TRACE("EXIT: MAP_FAILED\n");
+
+        return NULL;
+    }
+
+    if (shmctl(id, IPC_RMID, NULL) < 0) /* ...and mark it destroyed. */
+    {
+        shmdt( (const void *)pshm ); /* Detach the segment... */
+
+        TRACE("EXIT: fail\n");
+
+        return NULL;
+    }
+
+    TRACE("EXIT: pshm=%p\n", pshm);
+
+    return (SharedBufferPrivate *)pshm;
+}
+
+SharedBuffer::SharedBufferPrivate *SharedBuffer::create_(int & id, size_t size)
+{
+    TRACE("size=%d\n", size);
+
+    id = shmget(IPC_PRIVATE,
+                size + sizeof(SharedBufferPrivate),
+                IPC_CREAT | SHM_R | SHM_W);
+
+    void *pshm = attach_(id); /* try to attach the segment... */
+
+    TRACE("EXIT: pshm=%p\n", pshm);
 
     return (SharedBufferPrivate *)pshm;
 }
