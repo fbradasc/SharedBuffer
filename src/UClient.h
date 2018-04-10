@@ -2,6 +2,8 @@
 #define U_CLIENT_H
 
 #include <iostream>
+#include <vector>
+#include <sstream>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -12,9 +14,6 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
-#include <netdb.h>
-#include <vector>
-#include <sstream>
 #include <sys/socket.h>
 
 using namespace std;

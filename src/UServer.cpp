@@ -14,114 +14,122 @@ string UServer::_message;
 /* size of control buffer to send/recv one file descriptor */
 #define CONTROLLEN  CMSG_LEN(sizeof(int) )
 
-void* UServer::task_(void *arg)
+UServer::UServer(): _sockfd(-1), _socket(-1)
 {
-    int n;
-    int sockfd = (long)arg;
-    char msg[MAXPACKETSIZE];
+}
 
-    pthread_detach(pthread_self() );
-
-    while (true)
+UServer::~UServer()
+{
+    if (_sockfd >= 0)
     {
-        n = recv(sockfd, msg, MAXPACKETSIZE, 0);
+        close(_sockfd);
 
-        if (n == 0)
-        {
-            close(sockfd);
-            break;
-        }
-
-        msg[n] = 0;
-        //send(sockfd,msg,n,0);
-        _message = string(msg);
-
-        TRACE("received: %s\n", _message.c_str());
+        _sockfd = -1;
     }
 
-    return( 0);
-}
-
-UServer::UServer()
-{
-}
-
-void UServer::setup(const string & path)
-{
-    unlink(path.c_str());
-
-    _sockfd = socket(AF_UNIX, SOCK_STREAM, 0);
-
-    memset(&_server_addr, 0, sizeof(_server_addr) );
-
-    _server_addr.sun_family = AF_UNIX;
-
-    strcpy(_server_addr.sun_path, path.c_str() );
-
-    bind(_sockfd,
-         (struct sockaddr *)&_server_addr,
-         strlen(_server_addr.sun_path) + sizeof(_server_addr.sun_family) );
-
-    listen(_sockfd, 5);
-}
-
-void UServer::receive()
-{
-    while (true)
+    if (_socket >= 0)
     {
-        socklen_t sosize = sizeof(_client_addr);
+        close(_socket);
 
-        _sock = accept(_sockfd,
-                       (struct sockaddr*)&_client_addr,
-                       &sosize);
-
-        pthread_create(&_server_thread,
-                       NULL,
-                       &task_,
-                       (void *)_sock);
+        _socket = -1;
     }
 }
 
-vector<string> UServer::getMessage(const char& separator)
+bool UServer::put(const string & data)
 {
-    string next;
+    TRACE("ENTER: %s\n", data.c_str());
 
-    vector<string> result;
-
-    // For each character in the string
-    for (string::const_iterator it = _message.begin(); it != _message.end(); it++)
+    if (_socket != -1)
     {
-        // If we've hit the terminal character
-        if (*it == separator)
+        if (send(_socket, data.c_str(), strlen(data.c_str() ), 0) < 0)
         {
-            // If we have some characters accumulated
-            if (!next.empty() )
-            {
-                TRACE("got: %s\n", next.c_str());
-                // Add them to the result vector
-                result.push_back(next);
-                next.clear();
-            }
-        }
-        else
-        {
-            // Accumulate the next character into the sequence
-            next += *it;
+            cout << "Send failed : " << data << endl;
+            return(false);
         }
     }
-
-    if (!next.empty() )
+    else
     {
-        TRACE("got: %s\n", next.c_str());
-        result.push_back(next);
+        return(false);
     }
 
-    clean();
-
-    return(result);
+    return(true);
 }
 
-bool UServer::send_fd(int fd)
+bool UServer::get(std::string & data, size_t size)
+{
+    if (size <= 0)
+    {
+        TRACE("EXIT: invalid params!\n");
+
+        return false;
+    }
+
+    char buffer[size];
+
+    memset(&buffer[0], 0, sizeof(buffer));
+
+    int retval = recv(_socket, buffer, size, 0);
+
+    if (retval < 0)
+    {
+        TRACE("EXIT: receive failed!\n");
+
+        return false;
+    }
+
+    buffer[size - 1] = '\0';
+
+    data = buffer;
+
+    TRACE("EXIT: %s\n", data.c_str());
+
+    return true;
+}
+
+bool UServer::put(const int & data)
+{
+    TRACE("ENTER: %d\n", data);
+
+    if (_socket != -1)
+    {
+        int retval = send(_socket, &data, sizeof(data), 0);
+
+        if (retval < 0)
+        {
+            TRACE("EXIT: Send failed : %d - %s\n", retval, strerror(errno));
+
+            return false;
+        }
+    }
+    else
+    {
+        TRACE("Send failed : Socket not open\n");
+
+        return false;
+    }
+
+    return true;
+}
+
+bool UServer::get(int & data)
+{
+    int retval;
+
+    if (recv(_socket, &retval, sizeof(&retval), 0) < 0)
+    {
+        perror("EXIT: receive failed!\n");
+
+        return false;
+    }
+
+    TRACE("EXIT: %d\n", retval);
+
+    data = retval;
+
+    return true;
+}
+
+bool UServer::putfd(const int & fd)
 {
     TRACE("INIT\n");
 
@@ -153,7 +161,7 @@ bool UServer::send_fd(int fd)
     {
         TRACE("Sending msg_controllen: %d\n", msg.msg_controllen);
 
-        retval = sendmsg(_sock, &msg, MSG_NOSIGNAL);
+        retval = sendmsg(_socket, &msg, MSG_NOSIGNAL);
 
         TRACE("%d - %s\n", retval, strerror(errno));
     }
@@ -164,7 +172,7 @@ bool UServer::send_fd(int fd)
     return(retval);
 }
 
-int UServer::recv_fd()
+bool UServer::getfd(int & data)
 {
     TRACE("INIT\n");
 
@@ -190,7 +198,7 @@ int UServer::recv_fd()
 
         msg.msg_controllen = sizeof(cmsgbuf);
 
-        retval = recvmsg(_sock, &msg, MSG_NOSIGNAL);
+        retval = recvmsg(_socket, &msg, MSG_NOSIGNAL);
 
         TRACE("Receiving: %d - %s\n", retval, strerror(errno));
     }
@@ -203,7 +211,9 @@ int UServer::recv_fd()
 
         TRACE("EXIT: End of stream\n");
 
-        return(0);
+        data = 0;
+
+        return false;
     }
 
     if (retval < 0)
@@ -213,7 +223,9 @@ int UServer::recv_fd()
 
         TRACE("EXIT: %s\n", strerror(errno));
 
-        return(-1);
+        data = -1;
+
+        return false;
     }
 
     if ( (msg.msg_flags & (MSG_CTRUNC | MSG_OOB | MSG_ERRQUEUE) ) != 0 )
@@ -223,7 +235,9 @@ int UServer::recv_fd()
 
         TRACE("EXIT: Fatal error: %s\n", strerror(errno));
 
-        return(-1);
+        data = -1;
+
+        return false;
     }
 
     if (msg.msg_controllen <= 0)
@@ -233,7 +247,9 @@ int UServer::recv_fd()
 
         TRACE("EXIT: Empty response: %d\n", msg.msg_controllen);
 
-        return(-1);
+        data = -1;
+
+        return false;
     }
 
     struct cmsghdr *pcmsgh = CMSG_FIRSTHDR(&msg);
@@ -279,7 +295,9 @@ int UServer::recv_fd()
             //
             TRACE("EXIT: invalid cmsg length\n");
 
-            return -1;
+            data = -1;
+
+            return false;
         }
 
         for (int i = 0; i < count; i++)
@@ -292,25 +310,202 @@ int UServer::recv_fd()
             }
         }
     }
+
     TRACE("EXIT: %d\n", fd);
 
-    return(fd);
+    data = fd;
+
+    return true;
 }
 
-void UServer::send_iv(int val)
-{
-    TRACE("ENTER: %d\n", val);
+/**********************************************************************************
+ *                                                                                *
+ *                               Server's stuffs                                  *
+ *                                                                                *
+ **********************************************************************************/
 
-    send(_sock, &val, sizeof(val), 0);
+bool UServer::server_setup(const string & path)
+{
+    TRACE("ENTER: path=%s\n", path.c_str());
+
+    if (_sockfd >= 0)
+    {
+        TRACE("EXIT: already opened - _sockfd=%d\n", _sockfd);
+
+        return true;
+    }
+
+    unlink(path.c_str());
+
+    _sockfd = socket(AF_UNIX, SOCK_STREAM, 0);
+
+    if (_sockfd == -1)
+    {
+        perror("Could not create socket\n");
+
+        return false;
+    }
+
+    memset(&_server, 0, sizeof(_server) );
+
+    _server.sun_family = AF_UNIX;
+
+    strcpy(_server.sun_path, path.c_str() );
+
+    bind(_sockfd,
+         (struct sockaddr *)&_server,
+         strlen(_server.sun_path) + sizeof(_server.sun_family) );
+
+    listen(_sockfd, 5);
+
+    TRACE("EXIT: _sockfd=%d\n", _sockfd);
+
+    return (_sockfd >= 0);
 }
 
-void UServer::clean()
+void* UServer::receiver_cb_(void *arg)
 {
+    int n;
+    UServer *p = (UServer*)arg;
+
+    char msg[MAXPACKETSIZE];
+
+    pthread_detach(pthread_self());
+
+    while ((n = recv(p->_socket, msg, MAXPACKETSIZE, 0)) != 0)
+    {
+        msg[n] = 0;
+
+        p->_message = string(msg);
+
+        TRACE("received: %s\n", p->_message.c_str());
+    }
+
+    msg[0] = 0;
+
+    close(p->_socket);
+
+    return NULL;
+}
+
+void UServer::receive()
+{
+    while (true)
+    {
+        socklen_t sosize = sizeof(_client);
+
+        _socket = accept(_sockfd,
+                         (struct sockaddr*)&_client,
+                         &sosize);
+
+        pthread_create(&_thread,
+                       NULL,
+                       &receiver_cb_,
+                       (void *)this);
+    }
+}
+
+vector<string> UServer::parse(const char& separator)
+{
+    string next;
+
+    vector<string> result;
+
+    // For each character in the string
+    for (string::const_iterator it = _message.begin(); it != _message.end(); it++)
+    {
+        // If we've hit the terminal character
+        if (*it == separator)
+        {
+            // If we have some characters accumulated
+            if (!next.empty() )
+            {
+                TRACE("got: %s\n", next.c_str());
+                // Add them to the result vector
+                result.push_back(next);
+                next.clear();
+            }
+        }
+        else
+        {
+            // Accumulate the next character into the sequence
+            next += *it;
+        }
+    }
+
+    if (!next.empty() )
+    {
+        TRACE("got: %s\n", next.c_str());
+        result.push_back(next);
+    }
+
     _message = "";
+
+    return(result);
 }
 
 void UServer::detach()
 {
-    close(_sockfd);
-    close(_sock);
+    if (_socket >= 0)
+    {
+        close(_socket);
+
+        _socket = -1;
+    }
+
+    if (_sockfd >= 0)
+    {
+        close(_sockfd);
+
+        _sockfd = -1;
+    }
+}
+
+/**********************************************************************************
+ *                                                                                *
+ *                               Client's stuffs                                  *
+ *                                                                                *
+ **********************************************************************************/
+
+bool UServer::client_setup(const string & path)
+{
+    TRACE("ENTER: path=%s\n", path.c_str());
+
+    if (_socket >= 0)
+    {
+        TRACE("EXIT: already opened - _socket=%d\n", _socket);
+
+        return true;
+    }
+
+    _socket = socket(AF_UNIX, SOCK_STREAM, 0);
+
+    if (_socket == -1)
+    {
+        perror("EXIT: Could not create socket\n");
+
+        return false;
+    }
+
+    _server.sun_family = AF_UNIX;
+
+    strcpy(_server.sun_path, path.c_str());
+
+    int servlen = strlen(_server.sun_path) + sizeof(_server.sun_family);
+
+    int retval = connect(_socket, (struct sockaddr *)&_server, servlen);
+
+    if (retval < 0)
+    {
+        perror("EXIT: connect failed. Error");
+
+        if (_socket >= 0)
+        {
+            close(_socket);
+
+            _socket = -1;
+        }
+    }
+
+    return connected();
 }

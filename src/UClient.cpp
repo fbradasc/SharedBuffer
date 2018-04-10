@@ -12,60 +12,52 @@
 #define CONTROLLEN  CMSG_LEN(sizeof(int) )
 
 UClient::UClient() :
-    _sock(-1)
+    _socket(-1)
 {
 }
 
 UClient::~UClient()
 {
-    exit();
+    detach();
 }
 
-bool UClient::setup(const string & path)
+bool UClient::attach(const string & path)
 {
-    if (!setup_(path) )
+    if (_socket == -1)
     {
-        exit();
+        _socket = socket(AF_UNIX, SOCK_STREAM, 0);
 
-        _sock = -1;
-    }
-
-    return connected();
-}
-
-bool UClient::setup_(const string & path)
-{
-    if (_sock == -1)
-    {
-        _sock = socket(AF_UNIX, SOCK_STREAM, 0);
-
-        if (_sock == -1)
+        if (_socket == -1)
         {
             cout << "Could not create socket" << endl;
         }
     }
 
     _server.sun_family = AF_UNIX;
+
     strcpy(_server.sun_path, path.c_str());
 
     int servlen = strlen(_server.sun_path) + sizeof(_server.sun_family);
-    if (connect(_sock, (struct sockaddr *)&_server, servlen) < 0)
+
+    if (connect(_socket, (struct sockaddr *)&_server, servlen) < 0)
     {
         perror("connect failed. Error");
 
-        return(false);
+        detach();
+
+        _socket = -1;
     }
 
-    return(true);
+    return connected();
 }
 
 bool UClient::send_tv(const string & data)
 {
     TRACE("ENTER: %s\n", data.c_str());
 
-    if (_sock != -1)
+    if (_socket != -1)
     {
-        if (send(_sock, data.c_str(), strlen(data.c_str() ), 0) < 0)
+        if (send(_socket, data.c_str(), strlen(data.c_str() ), 0) < 0)
         {
             cout << "Send failed : " << data << endl;
             return(false);
@@ -79,43 +71,33 @@ bool UClient::send_tv(const string & data)
     return(true);
 }
 
-bool UClient::send_iv(int val)
-{
-    TRACE("ENTER: %d\n", val);
-
-    if (_sock != -1)
-    {
-        if (send(_sock, &val, sizeof(val), 0) < 0)
-        {
-            cout << "Send failed : " << val << endl;
-            return(false);
-        }
-    }
-    else
-    {
-        return(false);
-    }
-
-    return(true);
-}
-
 string UClient::recv_tv(int size)
 {
+    if (size <= 0)
+    {
+        TRACE("EXIT: invalid params!\n");
+
+        return "";
+    }
+
     char buffer[size];
 
     memset(&buffer[0], 0, sizeof(buffer) );
 
     string reply;
 
-    if (recv(_sock, buffer, size, 0) < 0)
+    if (recv(_socket, buffer, size, 0) < 0)
     {
-        cout << "receive failed!" << endl;
+        TRACE("EXIT: receive failed!\n");
+
         return("");
     }
 
     buffer[size - 1] = '\0';
     reply = buffer;
+
     TRACE("EXIT: %s\n", reply.c_str());
+
     return(reply);
 }
 
@@ -123,23 +105,16 @@ int UClient::recv_iv()
 {
     int retval;
 
-    if (recv(_sock, &retval, sizeof(&retval), 0) < 0)
+    if (recv(_socket, &retval, sizeof(&retval), 0) < 0)
     {
-        cout << "receive failed!" << endl;
+        TRACE("EXIT: receive failed!\n");
+
         return(false);
     }
 
     TRACE("EXIT: %d\n", retval);
 
     return(retval);
-}
-
-void UClient::exit()
-{
-    if (_sock >= 0)
-    {
-        close(_sock);
-    }
 }
 
 bool UClient::send_fd(int fd)
@@ -172,9 +147,9 @@ bool UClient::send_fd(int fd)
 
     do
     {
-        TRACE("Sending msg_controllen: %d", msg.msg_controllen);
+        TRACE("Sending msg_controllen: %d\n", msg.msg_controllen);
 
-        retval = sendmsg(_sock, &msg, MSG_NOSIGNAL);
+        retval = sendmsg(_socket, &msg, MSG_NOSIGNAL);
 
         TRACE("%d - %s\n", retval, strerror(errno));
     }
@@ -211,7 +186,7 @@ int UClient::recv_fd()
 
         msg.msg_controllen = sizeof(cmsgbuf);
 
-        retval = recvmsg(_sock, &msg, MSG_NOSIGNAL);
+        retval = recvmsg(_socket, &msg, MSG_NOSIGNAL);
 
         TRACE("Receiving: %d - %s\n", retval, strerror(errno));
     }
@@ -317,3 +292,33 @@ int UClient::recv_fd()
 
     return(fd);
 }
+
+bool UClient::send_iv(int val)
+{
+    TRACE("ENTER: %d\n", val);
+
+    if (_socket != -1)
+    {
+        if (send(_socket, &val, sizeof(val), 0) < 0)
+        {
+            cout << "Send failed : " << val << endl;
+
+            return(false);
+        }
+    }
+    else
+    {
+        return(false);
+    }
+
+    return(true);
+}
+
+void UClient::detach()
+{
+    if (_socket >= 0)
+    {
+        close(_socket);
+    }
+}
+

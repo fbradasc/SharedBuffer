@@ -24,12 +24,6 @@
 
 #include "SharedBuffer.h"
 
-#if defined(ANDROID)
-#define ION_SOCKET_PATH "/data/local/tmp/ion_socket"
-#else
-#define ION_SOCKET_PATH "/tmp/ion_socket"
-#endif
-
 SharedBuffer shb;
 
 #if defined(DEBUG_MAIN)

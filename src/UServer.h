@@ -2,19 +2,19 @@
 #define U_SERVER_H
 
 #include <iostream>
+#include <sstream>
 #include <vector>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
+#include <string.h>
+#include <netdb.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <netinet/in.h>
-#include <string.h>
 #include <arpa/inet.h>
 #include <pthread.h>
-#include <sys/socket.h>
 
 using namespace std;
 
@@ -23,29 +23,37 @@ using namespace std;
 class UServer
 {
 public:
-    int _sockfd;
-    int _sock;
-    struct sockaddr_un _server_addr;
-    struct sockaddr_un _client_addr;
-    pthread_t _server_thread;
-    static string _message;
-
     UServer();
+    ~UServer();
 
-    void setup(const string & path);
+    inline bool connected() { return _socket >= 0; }
+
+    bool server_setup(const string & path);
+    bool client_setup(const string & path);
 
     void receive();
-    vector<string> getMessage(const char& separator);
-    void send_iv(int val);
+    vector<string> parse(const char& separator);
 
-    bool send_fd(int fd);
-    int  recv_fd();
+    bool put(const string & data);
+    bool get(      string & out, size_t size = MAXPACKETSIZE);
+
+    bool put(const int & val);
+    bool get(      int & val);
+
+    bool putfd(const int & fd);
+    bool getfd(      int & fd);
 
     void detach();
-    void clean();
 
 private:
-    static void * task_(void * argv);
+    int                _sockfd;
+    int                _socket;
+    struct sockaddr_un _server;
+    struct sockaddr_un _client;
+    pthread_t          _thread;
+    static string      _message;
+
+    static void * receiver_cb_(void * argv);
 };
 
 #endif

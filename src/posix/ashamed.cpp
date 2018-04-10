@@ -197,7 +197,7 @@ void * loop(void * m)
     {
         srand(time(NULL));
 
-        vector<string> vstr = scon.getMessage(':');
+        vector<string> vstr = scon.parse(':');
 
         size_t pnum = vstr.size();
 
@@ -213,7 +213,7 @@ void * loop(void * m)
 
             TRACE("Send: %d\n", fd);
 
-            scon.send_fd(fd);
+            scon.putfd(fd);
         }
         else
         if ((pnum == 2) && (vstr[0] == "U")) // unlink
@@ -222,18 +222,19 @@ void * loop(void * m)
 
             TRACE("Send: %d\n", rv);
 
-            scon.send_iv(rv);
+            scon.put(rv);
         }
         else
         if ((pnum == 2) && (vstr[0] == "T")) // truncate
         {
-            fd = scon.recv_fd();
-
-            rv = ashamed_truncate_(fd, atoi(vstr[1].c_str()));
+            if (scon.getfd(fd))
+            {
+                rv = ashamed_truncate_(fd, atoi(vstr[1].c_str()));
+            }
 
             TRACE("Send: %d\n", rv);
 
-            scon.send_iv(rv);
+            scon.put(rv);
         }
 
         usleep(1000);
@@ -329,7 +330,7 @@ int main()
 
     pthread_t msg;
 
-    scon.setup(SOCKET_PATH);
+    scon.server_setup(SOCKET_PATH);
 
     if (pthread_create(&msg, NULL, loop, (void *)0) == 0)
     {

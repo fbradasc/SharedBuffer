@@ -98,17 +98,18 @@ void SharedBuffer::dump()
 
 bool SharedBuffer::grab_(bool grab)
 {
-    TRACE(" - ENTER\n");
+    TRACE("ENTER\n");
 
     if (_owner)
     {
-        TRACE(" - EXIT: owner\n");
+        TRACE("EXIT: owner\n");
+
         return true;
     }
 
     if (NULL == _pshm)
     {
-        TRACE(" - EXIT: _pshm == NULL\n");
+        TRACE("EXIT: _pshm == NULL\n");
 
         return true; // avoid loops
     }
@@ -117,7 +118,7 @@ bool SharedBuffer::grab_(bool grab)
 
     if (!_pshm->_exclusive)
     {
-        TRACE(" - EXIT: !exclusive\n");
+        TRACE("EXIT: !exclusive\n");
 
         return true;
     }
@@ -126,7 +127,7 @@ bool SharedBuffer::grab_(bool grab)
     {
         _grabbed = !lock_test_and_set(_pshm->_locks[THIRD], true);
 
-        TRACE(" - EXIT: grabbing=%d\n", _grabbed);
+        TRACE("EXIT: grabbing=%d\n", _grabbed);
     }
     else
     if (_grabbed)
@@ -135,10 +136,10 @@ bool SharedBuffer::grab_(bool grab)
 
         _grabbed = false;
 
-        TRACE(" - EXIT: releasing\n");
+        TRACE("EXIT: releasing\n");
     }
 
-    TRACE(" - EXIT: grabbed=%d\n", _grabbed);
+    TRACE("EXIT: grabbed=%d\n", _grabbed);
 
     return _grabbed;
 }
@@ -212,7 +213,7 @@ SharedBuffer::SharedBufferPrivate *SharedBuffer::attach_(int id)
 {
     void *pshm = NULL;
 
-    TRACE("id=%d\n", id);
+    TRACE("ENTER: id=%d\n", id);
 
     if (id <= 0)
     {

@@ -12,7 +12,8 @@ H_FLAGS="-Isrc -Iinc"
 
 SYSV_H_FLAGS="${H_FLAGS} -Iinc/sysv"
 
-SYSV_CRAPCHAT_SRCS="src/UServer.cpp src/UClient.cpp src/ion.cpp src/sysv/SharedBuffer.cpp src/sysv/crapchat.cpp"
+# SYSV_CRAPCHAT_SRCS="src/UServer.cpp src/UClient.cpp src/ion.cpp src/sysv/SharedBuffer.cpp src/sysv/crapchat.cpp"
+SYSV_CRAPCHAT_SRCS="src/UServer.cpp src/ion.cpp src/sysv/SharedBuffer.cpp src/sysv/crapchat.cpp"
 
 DEBUG_FLAGS="-DDEBUG_SHB -DDEBUG_USERVER -DDEBUG_UCLIENT -DDEBUG_MAIN -DDEBUG_ASHAMED"
 # DEBUG_FLAGS=""
@@ -44,9 +45,10 @@ POSIX_H_FLAGS="${H_FLAGS} -Iinc/posix"
 
 POSIX_CRAPCHAT_SRCS="src/posix/SharedBuffer.cpp src/posix/crapchat.cpp"
 
-g++ -g -fpermissive -Wint-to-pointer-cast ${POSIX_CRAPCHAT_SRCS} -o bin/posix/crapchat_x86_64 -lrt
+g++ -g -fpermissive -Wint-to-pointer-cast ${DEBUG_FLAGS} ${POSIX_CRAPCHAT_SRCS} -o bin/posix/crapchat_x86_64 -lrt
 
-POSIX_CRAPCHAT_SRCS="src/UClient.cpp src/posix/posix_shm.cpp ${POSIX_CRAPCHAT_SRCS}"
+# POSIX_CRAPCHAT_SRCS="src/UClient.cpp src/posix/posix_shm.cpp ${POSIX_CRAPCHAT_SRCS}"
+POSIX_CRAPCHAT_SRCS="src/UServer.cpp src/posix/posix_shm.cpp ${POSIX_CRAPCHAT_SRCS}"
 
 ./setCrossEnvironment-armeabi-v7a.sh sh -c \
 "\$CXX \$CXXFLAGS -D_LINUX_IPC_H -D__ANDROID__ ${DEBUG_FLAGS} ${H_FLAGS} -pie \$LDFLAGS ${POSIX_H_FLAGS} ${POSIX_CRAPCHAT_SRCS} -o bin/posix/crapchat_android"

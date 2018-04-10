@@ -1,10 +1,10 @@
 #if defined(__ANDROID__)
 
-#include "UClient.h"
+#include "UServer.h"
 #include "posix_shm.h"
 #include <linux/ashmem.h>
 
-UClient ashamed;
+UServer ashamed;
 
 #define _SS(a) stringstream(a)
 
@@ -42,15 +42,15 @@ int posix_shm_truncate(int fd, size_t size)
         oss << ":";
         oss << size;
 
-        ashamed.send_tv(oss.str() );
+        ashamed.put(oss.str());
 
         TRACE("\n");
 
-        ashamed.send_fd(fd);
+        ashamed.putfd(fd);
 
         TRACE("\n");
 
-        retval = ashamed.recv_iv();
+        ashamed.get(retval);
     }
 
     TRACE("EXIT: %d\n", retval);
@@ -64,7 +64,7 @@ int posix_shm_unlink(const char* name)
 
     int retval = -1;
 
-    if (ashamed.connected() )
+    if (ashamed.connected())
     {
         TRACE("\n");
 
@@ -74,11 +74,11 @@ int posix_shm_unlink(const char* name)
         oss << ":";
         oss << name;
 
-        ashamed.send_tv(oss.str() );
+        ashamed.put(oss.str());
 
         TRACE("\n");
 
-        retval = ashamed.recv_iv();
+        ashamed.get(retval);
     }
 
     TRACE("EXIT: %d\n", retval);
@@ -92,7 +92,7 @@ int posix_shm_open(const char *name, int oflag, mode_t mode)
 
     int fd = -1;
 
-    if (ashamed.setup(SOCKET_PATH))
+    if (ashamed.client_setup(SOCKET_PATH))
     {
         TRACE("\n");
 
@@ -106,11 +106,11 @@ int posix_shm_open(const char *name, int oflag, mode_t mode)
         oss << ":";
         oss << mode;
 
-        ashamed.send_tv(oss.str() );
+        ashamed.put(oss.str());
 
         TRACE("\n");
 
-        fd = ashamed.recv_fd();
+        ashamed.getfd(fd);
     }
 
     TRACE("EXIT: %d\n", fd);

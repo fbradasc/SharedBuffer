@@ -32,8 +32,7 @@
 #define ION_SOCKET_PATH "/tmp/ion_socket"
 #endif
 
-UServer scon;
-UClient ccon;
+UServer conn;
 
 SharedBuffer shb;
 
@@ -141,7 +140,7 @@ void * server(void * m)
     {
         srand(time(NULL));
 
-        vector<string> vstr = scon.getMessage(':');
+        vector<string> vstr = conn.parse(':');
 
         size_t pnum = vstr.size();
 
@@ -150,16 +149,16 @@ void * server(void * m)
             TRACE(" - Send: %d\n", fd);
 
 #if defined(ANDROID)
-            scon.send_fd(fd);
+            conn.putfd(fd);
 #else
-            scon.send_iv(fd);
+            conn.put(fd);
 #endif
         }
 
         usleep(1000);
     }
 
-    scon.detach();
+    conn.detach();
 }
 
 void * dispatcher(void * m)
@@ -168,11 +167,11 @@ void * dispatcher(void * m)
 
     pthread_t msg;
 
-    scon.setup(ION_SOCKET_PATH);
+    conn.server_setup(ION_SOCKET_PATH);
 
     if (pthread_create(&msg, NULL, server, m) == 0)
     {
-        scon.receive();
+        conn.receive();
     }
 }
 
@@ -219,22 +218,27 @@ int main(int argc, char* argv[])
                 worker();
             }
         }
-        if ((strcmp(argv[1],"-c")==0) && ccon.setup(ION_SOCKET_PATH))
+        if ((strcmp(argv[1],"-c")==0) && conn.client_setup(ION_SOCKET_PATH))
         {
             ostringstream oss;
 
             oss << "G";
 
-            ccon.send_tv(oss.str());
+            conn.put(oss.str());
 
             int fd = -1;
 
+            bool success = false;
+
 #if defined(ANDROID)
-            fd = ccon.recv_fd();
+            success = conn.getfd(fd);
 #else
-            fd = ccon.recv_iv();
+            success = conn.get(fd);
 #endif
-            client(fd);
+            if (success)
+            {
+                client(fd);
+            }
         }
 #if 0
         else if (strcmp(argv[1],"-k")==0)
