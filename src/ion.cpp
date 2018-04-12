@@ -1,4 +1,4 @@
-#if defined(__ANDROID__)
+#if defined(ANDROID)
 
 #include "ion.h"
 

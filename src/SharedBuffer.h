@@ -1,15 +1,19 @@
 #ifndef SHAREDBUFFER_H
 #define SHAREDBUFFER_H
 
+#include <string>
 #include <stdlib.h>
+#include <pthread.h>
 
 #include <sys/types.h>
 #include <sys/mman.h>
-#include <sys/shm.h>
 
-#if defined(__ANDROID__)
+#if defined(USE_SYSV_SHM) || defined(ANDROID)
+#include <sys/shm.h>
 #include "ion.h"
 #endif
+
+class IPC;
 
 class SharedBuffer
 {
@@ -20,7 +24,7 @@ public:
 
     void unmap();
 
-    bool map(int id, size_t size = 0, bool exclusive = false);
+    bool map(const char* name, size_t size=0, bool exclusive=false);
 
     bool grab();
 
@@ -28,17 +32,17 @@ public:
 
     inline void* data()
     {
-        return((NULL != _pshm) ? &_pshm->_buffer : NULL);
+        return( (NULL != _pshm) ? &_pshm->_buffer : NULL );
     }
 
     inline size_t size()
     {
-        return((NULL != _pshm) ? _pshm->_size : 0);
+        return( (NULL != _pshm) ? _pshm->_size : 0 );
     }
 
-    inline int id()
+    inline const char* name()
     {
-        return(_id);
+        return(_name);
     }
 
     inline bool grabbed()
@@ -67,6 +71,8 @@ public:
 
     void dump();
 
+    static bool destroy(const char *name);
+
 private:
     enum
     {
@@ -81,26 +87,39 @@ private:
     private:
         friend class SharedBuffer;
 
-        bool   _exclusive   ;
-        bool   _locks[USERS];     // 0: owner access, 1: other access, 2: exclusive client attach
-        size_t _size        ;
-        char   _buffer      ;
+        bool   _exclusive;
+        bool   _locks[USERS];   // 0: owner access, 1: other access, 2: exclusive client attach
+        size_t _size;
+        char   _buffer;
     };
 
-    int                  _id     ;
-    SharedBufferPrivate* _pshm   ;  // Shared memory buffer address.
-    bool                 _owner  ;
+    int                  _fd;
+    char*                _name;
+    SharedBufferPrivate* _pshm;  // Shared memory buffer address.
+    bool                 _owner;
     bool                 _grabbed;
 
-    bool map_(int id, size_t size, bool exclusive);
+    pthread_t            _owner_thread;
 
-    SharedBufferPrivate *attach_(int id);
+    bool map_(const char* name, size_t size=0, bool exclusive=false);
 
-    SharedBufferPrivate *create_(int & id, size_t size);
+    SharedBufferPrivate *attach_(const char *name);
+
+    SharedBufferPrivate *create_(const char *name, size_t size, int & fd);
 
     bool grab_(bool grab);
 
-#if defined(__ANDROID__)
+#if defined(USE_SYSV_SHM) || defined(ANDROID)
+
+    static void *publisher_(void * m);
+
+    static void publish_buffer_id_(IPC *conn, void *data);
+
+    int retrieve_buffer_id_(const std::string &name);
+
+    void *shm_attach_(int id);
+
+#if defined(ANDROID)
     ION _ion;
 
     int shmctl(int __shmid, int __cmd, struct shmid_ds *__buf);
@@ -110,7 +129,8 @@ private:
     void *shmat(int __shmid, const void *__shmaddr, int __shmflg);
 
     int shmdt(const void *__shmaddr);
-#endif
+#endif // ANDROID
+#endif // USE_SYSV_SHM || ANDROID
 };
 
 #endif // SHAREDBUFFER_H

@@ -1,9 +1,9 @@
-#include "UServer.h"
+#include "ipc.h"
 
 #include <sys/un.h>
 #include <errno.h>
 
-string UServer::_message;
+string IPC::_message;
 
 #if defined(DEBUG_USERVER)
 #define TRACE(format, ...)      printf("%s:%d - " format, __FUNCTION__, __LINE__, ## __VA_ARGS__)
@@ -14,11 +14,11 @@ string UServer::_message;
 /* size of control buffer to send/recv one file descriptor */
 #define CONTROLLEN  CMSG_LEN(sizeof(int) )
 
-UServer::UServer(): _sockfd(-1), _socket(-1)
+IPC::IPC(): _sockfd(-1), _socket(-1)
 {
 }
 
-UServer::~UServer()
+IPC::~IPC()
 {
     if (_sockfd >= 0)
     {
@@ -35,7 +35,7 @@ UServer::~UServer()
     }
 }
 
-bool UServer::put(const string & data)
+bool IPC::put(const string & data)
 {
     TRACE("ENTER: %s\n", data.c_str());
 
@@ -55,7 +55,7 @@ bool UServer::put(const string & data)
     return(true);
 }
 
-bool UServer::get(std::string & data, size_t size)
+bool IPC::get(std::string & data, size_t size)
 {
     if (size <= 0)
     {
@@ -86,7 +86,7 @@ bool UServer::get(std::string & data, size_t size)
     return true;
 }
 
-bool UServer::put(const int & data)
+bool IPC::put(const int & data)
 {
     TRACE("ENTER: %d\n", data);
 
@@ -111,7 +111,7 @@ bool UServer::put(const int & data)
     return true;
 }
 
-bool UServer::get(int & data)
+bool IPC::get(int & data)
 {
     int retval;
 
@@ -129,7 +129,7 @@ bool UServer::get(int & data)
     return true;
 }
 
-bool UServer::putfd(const int & fd)
+bool IPC::putfd(const int & fd)
 {
     TRACE("INIT\n");
 
@@ -172,7 +172,7 @@ bool UServer::putfd(const int & fd)
     return(retval);
 }
 
-bool UServer::getfd(int & data)
+bool IPC::getfd(int & data)
 {
     TRACE("INIT\n");
 
@@ -324,7 +324,7 @@ bool UServer::getfd(int & data)
  *                                                                                *
  **********************************************************************************/
 
-bool UServer::server_setup(const string & path)
+bool IPC::server_setup(const string & path)
 {
     TRACE("ENTER: path=%s\n", path.c_str());
 
@@ -363,10 +363,10 @@ bool UServer::server_setup(const string & path)
     return (_sockfd >= 0);
 }
 
-void* UServer::server_cb_(void *arg)
+void* IPC::server_cb_(void *arg)
 {
     int n;
-    UServer *p = (UServer*)arg;
+    IPC *p = (IPC*)arg;
 
     char msg[MAXPACKETSIZE];
 
@@ -388,7 +388,7 @@ void* UServer::server_cb_(void *arg)
     return NULL;
 }
 
-void UServer::server(void (*server_cb)(UServer *, void *), void *server_data)
+void IPC::server(void (*server_cb)(IPC *, void *), void *server_data)
 {
     while (true)
     {
@@ -414,7 +414,7 @@ void UServer::server(void (*server_cb)(UServer *, void *), void *server_data)
     }
 }
 
-vector<string> UServer::parse(const char& separator)
+vector<string> IPC::parse(const char& separator)
 {
     string next;
 
@@ -453,7 +453,7 @@ vector<string> UServer::parse(const char& separator)
     return(result);
 }
 
-void UServer::detach()
+void IPC::detach()
 {
     if (_socket >= 0)
     {
@@ -476,7 +476,7 @@ void UServer::detach()
  *                                                                                *
  **********************************************************************************/
 
-bool UServer::client_setup(const string & path)
+bool IPC::client_setup(const string & path)
 {
     TRACE("ENTER: path=%s\n", path.c_str());
 

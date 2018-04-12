@@ -20,18 +20,18 @@ using namespace std;
 
 #define MAXPACKETSIZE 4096
 
-class UServer
+class IPC
 {
 public:
-    UServer();
-    ~UServer();
+    IPC();
+    ~IPC();
 
     inline bool connected() { return _socket >= 0; }
 
     bool server_setup(const string & path);
     bool client_setup(const string & path);
 
-    void server(void (*server_cb)(UServer *, void *) = NULL, void *server_data = NULL);
+    void server(void (*server_cb)(IPC *, void *) = NULL, void *server_data = NULL);
 
     vector<string> parse(const char& separator);
 

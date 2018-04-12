@@ -11,7 +11,7 @@
 #include <sys/stat.h> /* For mode constants */
 #include <sys/types.h>
 
-#include "UServer.h"
+#include "ipc.h"
 
 #define synchronize()           __sync_synchronize         ()
 #define lock_test_and_set(P, V) __sync_lock_test_and_set   (&(P), (V) )
@@ -436,11 +436,11 @@ bool SharedBuffer::destroy(const char *name)
 }
 
 #if defined(USE_SYSV_SHM) || defined(ANDROID)
-void SharedBuffer::publish_buffer_id_(UServer *conn, void *data)
+void SharedBuffer::publish_buffer_id_(IPC *ipc, void *data)
 {
-    TRACE("ENTER: conn=%p, data=%p\n", conn, data);
+    TRACE("ENTER: ipc=%p, data=%p\n", ipc, data);
 
-    if (NULL == conn)
+    if (NULL == ipc)
     {
         TRACE("EXIT: invalid params\n");
 
@@ -452,9 +452,9 @@ void SharedBuffer::publish_buffer_id_(UServer *conn, void *data)
     bool success = false;
 
 #if defined(ANDROID)
-    success = conn->putfd(id);
+    success = ipc->putfd(id);
 #else
-    success = conn->put(id);
+    success = ipc->put(id);
 #endif
 
     TRACE("EXIT: %s\n", ((success) ? "success" : "failure"));
@@ -475,13 +475,13 @@ void *SharedBuffer::publisher_(void * m)
 
     pthread_t msg;
 
-    UServer conn;
+    IPC ipc;
 
     SharedBuffer *sb = (SharedBuffer*)m;
 
-    conn.server_setup(SHARED_BUFFER_NAME(sb->_name));
+    ipc.server_setup(SHARED_BUFFER_NAME(sb->_name));
 
-    conn.server(publish_buffer_id_, (void *)(intptr_t)sb->_fd);
+    ipc.server(publish_buffer_id_, (void *)(intptr_t)sb->_fd);
 
     TRACE("EXIT\n");
 
@@ -494,9 +494,9 @@ int SharedBuffer::retrieve_buffer_id_(const std::string &name)
 
     int id = -1;
 
-    UServer conn;
+    IPC ipc;
 
-    if (!conn.client_setup(name))
+    if (!ipc.client_setup(name))
     {
         TRACE("EXIT: connection failed\n");
 
@@ -506,9 +506,9 @@ int SharedBuffer::retrieve_buffer_id_(const std::string &name)
     bool success = false;
 
 #if defined(ANDROID)
-    success = conn.getfd(id);
+    success = ipc.getfd(id);
 #else
-    success = conn.get(id);
+    success = ipc.get(id);
 #endif
 
     if (!success)
