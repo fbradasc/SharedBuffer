@@ -171,7 +171,7 @@ void * dispatcher(void * m)
 
     if (pthread_create(&msg, NULL, server, m) == 0)
     {
-        conn.receive();
+        conn.server();
     }
 }
 

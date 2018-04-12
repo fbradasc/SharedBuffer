@@ -334,7 +334,7 @@ int main()
 
     if (pthread_create(&msg, NULL, loop, (void *)0) == 0)
     {
-        scon.receive();
+        scon.server();
     }
 
     // syslog(LOG_NOTICE, "ashamed daemon terminated.");

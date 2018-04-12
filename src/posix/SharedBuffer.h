@@ -1,7 +1,19 @@
 #ifndef SHAREDBUFFER_H
 #define SHAREDBUFFER_H
 
+#include <string>
 #include <stdlib.h>
+#include <pthread.h>
+
+#include <sys/types.h>
+#include <sys/mman.h>
+
+#if defined(USE_SYSV_SHM) || defined(ANDROID)
+#include <sys/shm.h>
+#include "ion.h"
+#endif
+
+class UServer;
 
 class SharedBuffer
 {
@@ -81,18 +93,44 @@ private:
         char   _buffer;
     };
 
+    int                  _fd;
     char*                _name;
     SharedBufferPrivate* _pshm;  // Shared memory buffer address.
     bool                 _owner;
     bool                 _grabbed;
 
+    pthread_t            _owner_thread;
+
     bool map_(const char* name, size_t size=0, bool exclusive=false);
 
     SharedBufferPrivate *attach_(const char *name);
 
-    SharedBufferPrivate *create_(const char *name, size_t size);
+    SharedBufferPrivate *create_(const char *name, size_t size, int & fd);
 
     bool grab_(bool grab);
+
+#if defined(USE_SYSV_SHM) || defined(ANDROID)
+
+    static void *publisher_(void * m);
+
+    static void publish_buffer_id_(UServer *conn, void *data);
+
+    int retrieve_buffer_id_(const std::string &name);
+
+    void *shm_attach_(int id);
+
+#if defined(ANDROID)
+    ION _ion;
+
+    int shmctl(int __shmid, int __cmd, struct shmid_ds *__buf);
+
+    int shmget(key_t __key, size_t __size, int __shmflg);
+
+    void *shmat(int __shmid, const void *__shmaddr, int __shmflg);
+
+    int shmdt(const void *__shmaddr);
+#endif // ANDROID
+#endif // USE_SYSV_SHM || ANDROID
 };
 
 #endif // SHAREDBUFFER_H

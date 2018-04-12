@@ -31,7 +31,8 @@ public:
     bool server_setup(const string & path);
     bool client_setup(const string & path);
 
-    void receive();
+    void server(void (*server_cb)(UServer *, void *) = NULL, void *server_data = NULL);
+
     vector<string> parse(const char& separator);
 
     bool put(const string & data);
@@ -53,7 +54,7 @@ private:
     pthread_t          _thread;
     static string      _message;
 
-    static void * receiver_cb_(void * argv);
+    static void * server_cb_(void * argv);
 };
 
 #endif

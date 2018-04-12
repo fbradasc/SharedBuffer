@@ -363,7 +363,7 @@ bool UServer::server_setup(const string & path)
     return (_sockfd >= 0);
 }
 
-void* UServer::receiver_cb_(void *arg)
+void* UServer::server_cb_(void *arg)
 {
     int n;
     UServer *p = (UServer*)arg;
@@ -388,7 +388,7 @@ void* UServer::receiver_cb_(void *arg)
     return NULL;
 }
 
-void UServer::receive()
+void UServer::server(void (*server_cb)(UServer *, void *), void *server_data)
 {
     while (true)
     {
@@ -398,10 +398,19 @@ void UServer::receive()
                          (struct sockaddr*)&_client,
                          &sosize);
 
-        pthread_create(&_thread,
-                       NULL,
-                       &receiver_cb_,
-                       (void *)this);
+        if (NULL != server_cb)
+        {
+            server_cb(this,server_data);
+
+            close(_socket);
+        }
+        else
+        {
+            pthread_create(&_thread,
+                           NULL,
+                           &server_cb_,
+                           (void *)this);
+        }
     }
 }
 

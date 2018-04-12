@@ -1,65 +1,22 @@
 #!/bin/sh
 
-###############################################################################
-#                                                                             #
-#                       SYSV API Implementation START                         #
-#                                                                             #
-###############################################################################
+DEBUG_FLAGS="-DDEBUG_SHB -DDEBUG_USERVER -DDEBUG_UCLIENT -DDEBUG_MAIN -DDEBUG_ASHAMED"
 
-mkdir -p bin/sysv
+CRAPCHAT_SRCS="src/UServer.cpp src/ion.cpp src/posix/SharedBuffer.cpp src/posix/crapchat.cpp"
 
 H_FLAGS="-Isrc -Iinc"
 
-SYSV_H_FLAGS="${H_FLAGS} -Iinc/sysv"
+mkdir -p bin/sysv
 
-# SYSV_CRAPCHAT_SRCS="src/UServer.cpp src/UClient.cpp src/ion.cpp src/sysv/SharedBuffer.cpp src/sysv/crapchat.cpp"
-SYSV_CRAPCHAT_SRCS="src/UServer.cpp src/ion.cpp src/sysv/SharedBuffer.cpp src/sysv/crapchat.cpp"
-
-DEBUG_FLAGS="-DDEBUG_SHB -DDEBUG_USERVER -DDEBUG_UCLIENT -DDEBUG_MAIN -DDEBUG_ASHAMED"
-# DEBUG_FLAGS=""
-
-g++ -g -fpermissive -Wint-to-pointer-cast ${SYSV_CRAPCHAT_SRCS} ${DEBUG_FLAGS} ${SYSV_H_FLAGS} -o bin/sysv/crapchat_x86_64 -lrt -lpthread
+SYSV_H_FLAGS="-DUSE_SYSV_SHM ${H_FLAGS} -Iinc/sysv"
 
 ./setCrossEnvironment-armeabi-v7a.sh sh -c \
-"\$CXX \$CXXFLAGS -D_LINUX_IPC_H -D__ANDROID__ ${DEBUG_FLAGS} ${SYSV_H_FLAGS} -pie \$LDFLAGS ${SYSV_CRAPCHAT_SRCS} -o bin/sysv/crapchat_android"
+"\$CXX \$CXXFLAGS -D_LINUX_IPC_H -D__ANDROID__ ${DEBUG_FLAGS} ${SYSV_H_FLAGS} -pie \$LDFLAGS ${CRAPCHAT_SRCS} -o bin/sysv/crapchat_android"
 
-###############################################################################
-#                                                                             #
-#                       SYSV API Implementation END                           #
-#                                                                             #
-###############################################################################
-
-# exit
-
-###############################################################################
-#                                                                             #
-#                     POSIX API Implementation START                          #
-#                                                                             #
-#                            WORK IN PROGRESS                                 #
-#                                                                             #
-###############################################################################
+g++ -g -fpermissive -Wint-to-pointer-cast ${CRAPCHAT_SRCS} ${DEBUG_FLAGS} ${SYSV_H_FLAGS} -o bin/sysv/crapchat_x86_64 -lrt -lpthread
 
 mkdir -p bin/posix
 
 POSIX_H_FLAGS="${H_FLAGS} -Iinc/posix"
 
-POSIX_CRAPCHAT_SRCS="src/posix/SharedBuffer.cpp src/posix/crapchat.cpp"
-
-g++ -g -fpermissive -Wint-to-pointer-cast ${DEBUG_FLAGS} ${POSIX_CRAPCHAT_SRCS} -o bin/posix/crapchat_x86_64 -lrt
-
-# POSIX_CRAPCHAT_SRCS="src/UClient.cpp src/posix/posix_shm.cpp ${POSIX_CRAPCHAT_SRCS}"
-POSIX_CRAPCHAT_SRCS="src/UServer.cpp src/posix/posix_shm.cpp ${POSIX_CRAPCHAT_SRCS}"
-
-./setCrossEnvironment-armeabi-v7a.sh sh -c \
-"\$CXX \$CXXFLAGS -D_LINUX_IPC_H -D__ANDROID__ ${DEBUG_FLAGS} ${H_FLAGS} -pie \$LDFLAGS ${POSIX_H_FLAGS} ${POSIX_CRAPCHAT_SRCS} -o bin/posix/crapchat_android"
-
-ASHAMED_SRCS="src/UServer.cpp src/posix/ashamed.cpp"
-
-./setCrossEnvironment-armeabi-v7a.sh sh -c \
-"\$CXX \$CXXFLAGS -D_LINUX_IPC_H -D__ANDROID__ ${DEBUG_FLAGS} ${H_FLAGS} -pie \$LDFLAGS ${POSIX_H_FLAGS} ${ASHAMED_SRCS} -o bin/posix/ashamed"
-
-###############################################################################
-#                                                                             #
-#                     POSIX API Implementation END                            #
-#                                                                             #
-###############################################################################
+g++ -g -fpermissive -Wint-to-pointer-cast ${CRAPCHAT_SRCS} ${DEBUG_FLAGS} ${POSIX_H_FLAGS} -o bin/posix/crapchat_x86_64 -lrt -lpthread
