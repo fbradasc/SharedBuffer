@@ -1,0 +1,18 @@
+TOBUILD   := \
+             bin/sysv/$(TARGET)/crapchat \
+             bin/posix/$(TARGET)/crapchat
+
+CXX       := g++
+
+CXXFLAGS  := \
+             -g \
+             -fpermissive \
+             -Wint-to-pointer-cast \
+             $(HDRS) \
+             $(DBG_FLAGS)
+
+LDFLAGS   := \
+             -lrt \
+             -lpthread
+
+all: $(TOBUILD)

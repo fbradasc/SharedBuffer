@@ -1,0 +1,100 @@
+#
+# Makefile
+#
+# Copyright (C) 2014 Creytiv.com
+#
+#!/bin/sh
+
+TOBUILD   := bin/sysv/$(TARGET)/crapchat
+
+# Paths to your Android SDK/NDK
+# currently it compiles only with android-ndk-r15c
+# NDK_PATH  := /opt/android-ndk
+NDK_PATH := $(shell which ndk-build)
+NDK_PATH := $(shell dirname $(NDK_PATH))
+NDK_PATH := $(shell readlink -f $(NDK_PATH))
+
+SDK_PATH  := /opt/android-sdk
+
+PLATFORM  := android-14
+
+# Path to install binaries on your Android-device
+TARGET_PATH=/data/local/tmp
+
+OS        := $(shell uname -s | tr "[A-Z]" "[a-z]")
+
+HOST_OS=linux-x86
+ifeq ($(OS),linux)
+  HOST_OS=linux-$(shell uname -m)
+endif
+ifeq ($(OS),darwin)
+  HOST_OS=darwin-$(shell uname -m)
+endif
+ifeq ($(OS),windows)
+  HOST_OS=windows-$(shell uname -m)
+endif
+
+GCCPREFIX := arm-linux-androideabi
+GCCVER    := 4.9
+ARCH      := armeabi-v7a
+
+# Tools
+SYSROOT   := $(NDK_PATH)/platforms/$(PLATFORM)/arch-arm
+PREBUILT  := $(NDK_PATH)/toolchains/$(GCCPREFIX)-$(GCCVER)/prebuilt
+BIN       := $(PREBUILT)/$(HOST_OS)/bin
+CC        := $(BIN)/$(GCCPREFIX)-gcc
+CXX       := $(BIN)/$(GCCPREFIX)-g++
+RANLIB    := $(BIN)/$(GCCPREFIX)-ranlib
+AR        := $(BIN)/$(GCCPREFIX)-ar
+ADB       := $(SDK_PATH)/platform-tools/adb
+PWD       := $(shell pwd)
+
+LD        := $(BIN)/$(GCCPREFIX)-ld
+CPP       := $(BIN)/$(GCCPREFIX)-cpp
+CXXCPP    := $(BIN)/$(GCCPREFIX)-cpp -x c++
+NM        := $(BIN)/$(GCCPREFIX)-nm
+AS        := $(BIN)/$(GCCPREFIX)-as
+STRIP     := $(BIN)/$(GCCPREFIX)-strip
+
+UNRESOLVED := -Wl,--no-undefined
+SHARED     := -Wl,--gc-sections -Wl,-z,nocopyreloc
+
+# Compiler and Linker Flags
+#
+# NOTE: use -isystem to avoid warnings in system header files
+CFLAGS    := \
+             -isystem $(SYSROOT)/usr/include/ \
+             $(HDRS) \
+             -march=armv7-a \
+             -fPIE \
+             -DANDROID \
+             -D_LINUX_IPC_H \
+             -Wl,--fix-cortex-a8 \
+             $(DBG_FLAGS) \
+             -DCONFIG_PATH='\"$(CONFIG_PATH)\"'
+
+CXXFLAGS  := \
+             $(CFLAGS) \
+             -isystem $(NDK)/sources/cxx-stl/gnu-libstdc++/$(GCCVER)/include \
+             -isystem $(NDK)/sources/cxx-stl/gnu-libstdc++/$(GCCVER)/libs/$(ARCH)/include \
+
+
+LDFLAGS   := \
+             --sysroot=$(NDK_PATH)/platforms/$(PLATFORM)/arch-arm \
+             -L$(NDK_PATH)/platforms/$(PLATFORM)/arch-arm/usr/lib \
+             -no-canonical-prefixes $(UNRESOLVED) -Wl,-z,noexecstack -Wl,-z,relro -Wl,-z,now \
+	         -L$(SYSROOT)/usr/lib/ \
+             -L$(NDK_PATH)/sources/cxx-stl/gnu-libstdc++/$(GCCVER)/libs/$(ARCH) \
+             -lc -lm -ldl -lz \
+             -lgnustl_shared \
+             -lsupc++ \
+             -lstdc++ \
+             -fPIE -pie
+
+LDFLAGS   += \
+			 --sysroot=$(NDK_PATH)/platforms/$(PLATFORM)/arch-arm
+
+all: $(TOBUILD)
+
+install:
+	adb push $(TOBUILD) $(TARGET_PATH)
