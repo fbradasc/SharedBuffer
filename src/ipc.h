@@ -1,19 +1,9 @@
 #ifndef U_SERVER_H
 #define U_SERVER_H
 
-#include <iostream>
-#include <sstream>
+#include <string>
 #include <vector>
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
-#include <netdb.h>
-#include <sys/types.h>
-#include <sys/socket.h>
 #include <sys/un.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
 #include <pthread.h>
 
 using namespace std;
@@ -28,15 +18,15 @@ public:
 
     inline bool connected() { return _socket >= 0; }
 
-    bool server_setup(const string & path);
-    bool client_setup(const string & path);
+    bool server_setup(const std::string & path);
+    bool client_setup(const std::string & path);
 
     void server(void (*server_cb)(IPC *, void *) = NULL, void *server_data = NULL);
 
-    vector<string> parse(const char& separator);
+    std::vector<std::string> parse(const char& separator);
 
-    bool put(const string & data);
-    bool get(      string & out, size_t size = MAXPACKETSIZE);
+    bool put(const std::string & data);
+    bool get(      std::string & out, size_t size = MAXPACKETSIZE);
 
     bool put(const int & val);
     bool get(      int & val);
@@ -52,7 +42,7 @@ private:
     struct sockaddr_un _server;
     struct sockaddr_un _client;
     pthread_t          _thread;
-    static string      _message;
+    static std::string _message;
 
     static void * server_cb_(void * argv);
 };

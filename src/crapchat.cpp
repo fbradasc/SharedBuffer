@@ -35,7 +35,9 @@ SharedBuffer shb;
 
 void server()
 {
-TRACE("\n");
+    shb.dump();
+
+    printf("\nYou’re producer. Waiting for customers...\n");
 
     for (;;)
     {
@@ -58,13 +60,19 @@ TRACE("\n");
 
 void client()
 {
-TRACE("\n");
-
     shb.dump();
 
-    while (!shb.grab())
+    printf("\n");
+
+    const char p[] = "|/-\\";
+
+    for (int i=0; !shb.grab(); i++)
     {
-        printf("Another client is attached, waiting\n");
+        i %= sizeof(p) - 1;
+
+        printf("Another client is attached, waiting %c\r", p[i]);
+        fflush(stdout);
+
         sleep(1);
     }
 
@@ -74,7 +82,7 @@ TRACE("\n");
 
     // Unlock the producer to signal they can talk.
     //
-    puts("You’re consumer. Signalling to producer...");
+    printf("You’re consumer. Signalling to producer...\n");
 
     shb.notify();
 
@@ -131,6 +139,7 @@ int main(int argc, char* argv[])
             //
             server();
         }
+        else
         if ((strcmp(argv[1],"-c")==0) && shb.map(argv[2]))
         {
             client();

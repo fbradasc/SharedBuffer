@@ -16,3 +16,9 @@ LDFLAGS   := \
              -lpthread
 
 all: $(TOBUILD)
+
+run_sysv: all
+	./bin/sysv/$(TARGET)/crapchat $(RUN_ARGS)
+
+run_posix: all
+	./bin/posix/$(TARGET)/crapchat $(RUN_ARGS)

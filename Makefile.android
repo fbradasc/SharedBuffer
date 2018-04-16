@@ -59,6 +59,8 @@ STRIP     := $(BIN)/$(GCCPREFIX)-strip
 UNRESOLVED := -Wl,--no-undefined
 SHARED     := -Wl,--gc-sections -Wl,-z,nocopyreloc
 
+STL_SHARED := $(NDK_PATH)/sources/cxx-stl/gnu-libstdc++/$(GCCVER)/libs/$(ARCH)/libgnustl_shared.so
+
 # Compiler and Linker Flags
 #
 # NOTE: use -isystem to avoid warnings in system header files
@@ -70,8 +72,7 @@ CFLAGS    := \
              -DANDROID \
              -D_LINUX_IPC_H \
              -Wl,--fix-cortex-a8 \
-             $(DBG_FLAGS) \
-             -DCONFIG_PATH='\"$(CONFIG_PATH)\"'
+             $(DBG_FLAGS)
 
 CXXFLAGS  := \
              $(CFLAGS) \
@@ -96,5 +97,8 @@ LDFLAGS   += \
 
 all: $(TOBUILD)
 
-install:
-	adb push $(TOBUILD) $(TARGET_PATH)
+install: all
+	@$(ADB) push --sync $(TOBUILD) $(STL_SHARED) $(TARGET_PATH)
+
+run: install
+	@$(ADB) shell "cd $(TARGET_PATH) && LD_LIBRARY_PATH=. ./crapchat $(RUN_ARGS)"

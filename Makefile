@@ -1,9 +1,4 @@
-DBG_FLAGS := \
-             -DDEBUG_SHB \
-             -DDEBUG_USERVER \
-             -DDEBUG_UCLIENT \
-             -DDEBUG_MAIN \
-             -DDEBUG_ASHAMED
+DBG_FLAGS :=
 
 HDRS      := \
              -I$(PWD)/src \
@@ -20,28 +15,53 @@ SRCS      := \
 
 TARGET    ?= $(shell uname -m)
 
+DEBUG     ?= off
+
+help:
+	@echo
+	@echo -e "make TARGET=android [DEBUG=<on|off>] [RUN_ARGS=...] <all|install|run>"
+	@echo
+	@echo -e "\tBuild for android"
+	@echo
+	@echo -e "make TARGET=linux [RUN_ARGS=...] <all|run_sysv|run_posix>"
+	@echo
+	@echo -e "\tBuild for linux"
+	@echo
+	@echo -e "make clean"
+	@echo
+	@echo -e "\tBuild cleanup"
+	@echo
+	@echo -e "make help"
+	@echo
+	@echo -e "\tShows this help"
+	@echo
+
+ifeq ($(DEBUG),on)
+DBG_FLAGS := \
+             -DDEBUG_SHB \
+             -DDEBUG_USERVER \
+             -DDEBUG_UCLIENT \
+             -DDEBUG_MAIN \
+             -DDEBUG_ASHAMED
+endif
+
 ifneq ($(findstring android, $(TARGET)),)
   include Makefile.android
 else
   include Makefile.unix
 endif
 
-default:
-	echo
-	echo "make TARGET=<android|unix>"
-	echo
-
 bin/sysv/$(TARGET)/crapchat: bin/sysv/$(TARGET) $(SRCS)
-	$(CXX) $(CXXFLAGS) -DUSE_SYSV_SHM $(LDFLAGS) $(SRCS) -o $@
+	@$(CXX) $(CXXFLAGS) -DUSE_SYSV_SHM $(LDFLAGS) $(SRCS) -o $@
 
 bin/posix/$(TARGET)/crapchat: bin/posix/$(TARGET) $(SRCS)
-	$(CXX) $(CXXFLAGS) $(LDFLAGS) $(SRCS) -o $@
+	@$(CXX) $(CXXFLAGS) $(LDFLAGS) $(SRCS) -o $@
 
 bin/sysv/$(TARGET):
-	mkdir -p $@
+	@mkdir -p $@
 
 bin/posix/$(TARGET):
-	mkdir -p $@
+	@mkdir -p $@
 
 clean:
-	rm -rf bin
+	@rm -rf bin

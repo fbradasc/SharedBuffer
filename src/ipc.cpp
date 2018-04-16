@@ -1,9 +1,16 @@
 #include "ipc.h"
 
-#include <sys/un.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
 #include <errno.h>
 
-string IPC::_message;
+using namespace std;
+
+std::string IPC::_message;
 
 #if defined(DEBUG_USERVER)
 #define TRACE(format, ...)      printf("%s:%d - " format, __FUNCTION__, __LINE__, ## __VA_ARGS__)
@@ -35,7 +42,7 @@ IPC::~IPC()
     }
 }
 
-bool IPC::put(const string & data)
+bool IPC::put(const std::string & data)
 {
     TRACE("ENTER: %s\n", data.c_str());
 
@@ -43,16 +50,17 @@ bool IPC::put(const string & data)
     {
         if (send(_socket, data.c_str(), strlen(data.c_str() ), 0) < 0)
         {
-            cout << "Send failed : " << data << endl;
-            return(false);
+            TRACE("EXIT: Send failed : %d\n", data.c_str());
+
+            return false;
         }
     }
     else
     {
-        return(false);
+        return false;
     }
 
-    return(true);
+    return true;
 }
 
 bool IPC::get(std::string & data, size_t size)
@@ -117,7 +125,7 @@ bool IPC::get(int & data)
 
     if (recv(_socket, &retval, sizeof(&retval), 0) < 0)
     {
-        perror("EXIT: receive failed!\n");
+        TRACE("EXIT: receive failed!: %s\n", strerror(errno));
 
         return false;
     }
@@ -324,7 +332,7 @@ bool IPC::getfd(int & data)
  *                                                                                *
  **********************************************************************************/
 
-bool IPC::server_setup(const string & path)
+bool IPC::server_setup(const std::string & path)
 {
     TRACE("ENTER: path=%s\n", path.c_str());
 
@@ -341,7 +349,7 @@ bool IPC::server_setup(const string & path)
 
     if (_sockfd == -1)
     {
-        perror("Could not create socket\n");
+        TRACE("Could not create socket: %s\n", strerror(errno));
 
         return false;
     }
@@ -376,7 +384,7 @@ void* IPC::server_cb_(void *arg)
     {
         msg[n] = 0;
 
-        p->_message = string(msg);
+        p->_message = std::string(msg);
 
         TRACE("received: %s\n", p->_message.c_str());
     }
@@ -414,14 +422,14 @@ void IPC::server(void (*server_cb)(IPC *, void *), void *server_data)
     }
 }
 
-vector<string> IPC::parse(const char& separator)
+std::vector<std::string> IPC::parse(const char& separator)
 {
-    string next;
+    std::string next;
 
-    vector<string> result;
+    std::vector<std::string> result;
 
     // For each character in the string
-    for (string::const_iterator it = _message.begin(); it != _message.end(); it++)
+    for (std::string::const_iterator it = _message.begin(); it != _message.end(); it++)
     {
         // If we've hit the terminal character
         if (*it == separator)
@@ -476,7 +484,7 @@ void IPC::detach()
  *                                                                                *
  **********************************************************************************/
 
-bool IPC::client_setup(const string & path)
+bool IPC::client_setup(const std::string & path)
 {
     TRACE("ENTER: path=%s\n", path.c_str());
 
@@ -491,7 +499,7 @@ bool IPC::client_setup(const string & path)
 
     if (_socket == -1)
     {
-        perror("EXIT: Could not create socket\n");
+        TRACE("EXIT: Could not create socket: %s\n", strerror(errno));
 
         return false;
     }
@@ -506,7 +514,7 @@ bool IPC::client_setup(const string & path)
 
     if (retval < 0)
     {
-        perror("EXIT: connect failed. Error");
+        TRACE("EXIT: connect failed. Error: %s\n", strerror(errno));
 
         if (_socket >= 0)
         {
