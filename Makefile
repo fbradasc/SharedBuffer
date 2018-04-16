@@ -1,17 +1,17 @@
 DBG_FLAGS :=
 
 HDRS      := \
-             -I$(PWD)/src \
-             -I$(PWD)/inc \
+             -I$(PWD)/src/lib \
+             -I$(PWD)/inc/lib \
 
 LIB_SRC   := \
-             src/ipc.cpp          \
-             src/ion.cpp          \
-             src/SharedBuffer.cpp \
+             src/lib/ipc.cpp          \
+             src/lib/ion.cpp          \
+             src/lib/SharedBuffer.cpp \
 
 SRCS      := \
              $(LIB_SRC) \
-             src/crapchat.cpp
+             src/test/crapchat.cpp
 
 TARGET    ?= $(shell uname -m)
 
