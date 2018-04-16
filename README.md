@@ -3,14 +3,19 @@
 
 Sample code to demostrate the use of shared memory between different processes (not forked)
 
-Unix sockets and sendmsg/recvmsg (ancillary data) are used to share the memory descriptors
+Supported targets:
 
-Used APIs for memory management:
+- linux / unix
 
-- SYSV  (shmctl, shmget, shmat, shmdt) 
-- Posix (ftruncate, shm_unlink, shm_open) [Work in progress]
+  By means of the following APIs:
 
-Supperted targets:
+  - SYSV  (shmctl, shmget, shmat, shmdt) 
+  - POSIX (ftruncate, shm_unlink, shm_open)
 
-- linux
-- android, by mean of ION APIs
+- Android
+
+  By means of the following APIs:
+
+  - SYSV (partially implemented using the ION library)
+
+Unix sockets and sendmsg/recvmsg (ancillary data) are used for the IPC.
