@@ -11,10 +11,10 @@ version = 13
 project_name = 'SharedBuffer'
 
 -- File And Folder Filters:
-folder_filter_mode = include -- { include, exclude }
-folder_filter +=
+folder_filter_mode = exclude -- { include, exclude }
+folder_filter += .git,bin
 file_filter +=
-file_ignore_pattern +=
+file_ignore_pattern += *.o
 
 -- Editing:
 indent = 4
