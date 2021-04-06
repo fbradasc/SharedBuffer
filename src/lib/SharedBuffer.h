@@ -65,7 +65,12 @@ public:
         return(((NULL != _pshm) && (who < USERS)) ? _pshm->_locks[who] : false);
     }
 
-    bool wait();
+    // timeout_ms:
+    // -1 : wait forever until notified
+    //  0 : try once -> return true if notified, false if not notified
+    // >0 : return true if notified within timeout_ms, false if timeout_ms is elaphsed
+    //
+    bool wait(int timeout_ms=-1);
 
     bool notify();
 

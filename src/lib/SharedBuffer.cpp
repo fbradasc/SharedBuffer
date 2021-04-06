@@ -77,15 +77,28 @@ bool SharedBuffer::release()
     return grab_(false);
 }
 
-bool SharedBuffer::wait()
+bool SharedBuffer::wait(const int timeout_ms)
 {
     if (NULL == _pshm)
     {
         return false;
     }
 
-    while (lock_test_and_set(_pshm->_locks[_owner ? OTHER : OWNER], true) )
+    int count_down = timeout_ms;
+
+    while (lock_test_and_set(_pshm->_locks[_owner ? OTHER : OWNER], true))
     {
+        if (count_down == 0)
+        {
+            return false;
+        }
+        else
+        if (count_down > 0)
+        {
+            count_down--;
+
+            usleep(1000); // wait 1 ms
+        }
     }
 
     return true;
